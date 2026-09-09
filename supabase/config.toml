@@ -1,0 +1,43 @@
+project_id = "rfmyrqzrwamygvyibdbs"
+
+[functions."setup-marketing-system"]
+verify_jwt = false
+
+[functions."send-confirmation-email"]
+verify_jwt = false
+
+[functions."test-resend"]
+verify_jwt = false
+
+[functions."handle-resend-webhooks"]
+verify_jwt = false
+
+[functions."send-invoice-email"]
+verify_jwt = false
+
+[functions."notify-accounts-pending"]
+verify_jwt = false
+
+[functions."daily-pending-digest"]
+verify_jwt = false
+
+[functions."send-attendance-notification"]
+verify_jwt = false
+
+[functions."rate-limit-check"]
+verify_jwt = false
+
+[functions."send-coach-availability-notice"]
+verify_jwt = false
+
+[functions."paystack-webhook"]
+verify_jwt = false
+
+[functions."paystack-list-transactions"]
+verify_jwt = false
+
+[functions."send-marketing-campaign"]
+verify_jwt = false
+
+[functions."send-discount-notification"]
+verify_jwt = false

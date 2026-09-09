@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+
+# Important pages
+Allow: /#about
+Allow: /#programs
+Allow: /#calendar
+Allow: /#contact
+Allow: /#gallery
+
+# Block admin and sensitive areas
+Disallow: /admin
+Disallow: /login
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://amusekenya.co.ke/sitemap.xml
+
+# Crawl delay (optional, 1 second)
+Crawl-delay: 1

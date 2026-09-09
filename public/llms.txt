@@ -1,0 +1,27 @@
+# Amuse Kenya
+
+> Kids outdoor camps and nature programs at Karura Forest, Nairobi, for children aged 3–17. Holiday camps, birthday parties, school programs, team building, and daily forest adventures.
+
+## Pages
+
+- [Home](/): Forest adventures for kids — camps, parties, and programs.
+- [Programs](/programs): Daily activities, holiday camps, parties, and school experiences.
+- [Easter Camp](/camps/easter): Easter holiday camp registration and details.
+- [Summer Camp](/camps/summer): Summer holiday camp registration and details.
+- [Mid Term Camp](/camps/mid-term): School break camp programs.
+- [End Year Camp](/camps/end-year): December holiday camp registration.
+- [Day Camps](/camps/day-camps): Single-day outdoor adventures.
+- [Team Building](/group-activities/team-building): Corporate and group team building in nature.
+- [Parties](/group-activities/parties): Birthday parties and celebrations in the forest.
+- [Kenyan Experiences](/experiences/kenyan-experiences): Cultural and outdoor Kenyan experiences.
+- [Homeschooling](/programs/homeschooling): Outdoor learning programs for homeschoolers.
+- [Who We Are](/about/who-we-are): Mission, vision, and 7 core pillars.
+- [What We Do](/about/what-we-do): Services and programs overview.
+- [Team](/about/team): Meet the Amuse Kenya team.
+- [Photo Gallery](/gallery): Photos of camp activities and nature adventures.
+- [Contact](/contact): Get in touch for bookings and inquiries.
+- [Announcements](/announcements): Latest news and program updates.
+- [Blog](/blog): Articles about outdoor education and nature.
+- [Register](/register): Online registration for programs and camps.
+- [Terms & Conditions](/terms-and-conditions): Booking terms, cancellation, and refund policies.
+- [Privacy Policy](/privacy-policy): Data collection, use, and protection practices.

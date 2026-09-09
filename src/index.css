@@ -1,0 +1,250 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 142 43% 38%;
+    --primary-foreground: 355.7 100% 97.3%;
+
+    --secondary: 36 48% 57%;
+    --secondary-foreground: 355.7 100% 97.3%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 199 86% 65%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 142 43% 38%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 142 43% 38%;
+    --primary-foreground: 355.7 100% 97.3%;
+
+    --secondary: 36 48% 57%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 199 86% 65%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 142 43% 38%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+}
+
+html, body {
+  font-family: 'Inter', sans-serif;
+}
+
+.glass-card {
+  @apply backdrop-blur-lg bg-white/70 dark:bg-black/40 border border-white/20 shadow-md;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.parallax-hero {
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.hero-overlay {
+  background: linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.6));
+}
+
+/* Lazy loading image effect - fixed to make images visible */
+.lazy-image {
+  @apply transition-opacity duration-500;
+}
+
+.lazy-image.loaded {
+  @apply opacity-100;
+}
+
+.image-blur-placeholder {
+  @apply absolute inset-0 bg-gray-200 animate-pulse-subtle filter blur-md transition-opacity duration-500;
+}
+
+/* Custom animation class */
+.staggered-fade-in > * {
+  animation: fade-in-up 0.7s ease-out forwards;
+}
+
+.staggered-fade-in > *:nth-child(1) { animation-delay: 0.1s; }
+.staggered-fade-in > *:nth-child(2) { animation-delay: 0.2s; }
+.staggered-fade-in > *:nth-child(3) { animation-delay: 0.3s; }
+.staggered-fade-in > *:nth-child(4) { animation-delay: 0.4s; }
+.staggered-fade-in > *:nth-child(5) { animation-delay: 0.5s; }
+.staggered-fade-in > *:nth-child(6) { animation-delay: 0.6s; }
+
+/* Hover effects */
+.hover-lift {
+  @apply transition-transform duration-300;
+}
+.hover-lift:hover {
+  @apply transform -translate-y-1;
+}
+
+/* Program card accent borders */
+.accent-border-left {
+  @apply relative overflow-hidden;
+}
+.accent-border-left::before {
+  content: '';
+  @apply absolute left-0 top-0 w-1 h-full;
+}
+.accent-forest::before { @apply bg-forest-500; }
+.accent-earth::before { @apply bg-earth-500; }
+.accent-sky::before { @apply bg-sky-500; }
+
+/* Fix for fade-in-element to remain visible after animation */
+.fade-in-element {
+  @apply transition-all duration-500 ease-out;
+}
+
+.fade-in-element.animate-scale-in {
+  animation: scale-in 0.5s ease-out forwards;
+}
+
+/* Fix for fade-in-up animation to ensure elements remain visible */
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.7s ease-out forwards;
+}
+
+/* Fix for fade-in animation to ensure elements remain visible */
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+@keyframes scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Add a subtle animation for the secret button */
+@keyframes pulse-subtle {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}
+
+/* Update TeamSection styles to fix image visibility */
+#team .image-blur-placeholder {
+  @apply transition-opacity duration-500;
+}
+
+#team .lazy-image {
+  @apply z-10 relative transition-opacity duration-500;
+}
+
+#team .lazy-image.loaded {
+  @apply opacity-100;
+}
+
+/* 3D Flip Card Utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}

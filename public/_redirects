@@ -1,0 +1,29 @@
+# Legacy URL redirects to new site structure
+/about-2/           /about/who-we-are       301
+/about-2            /about/who-we-are       301
+/amuse-camp/        /camps/day-camps        301
+/amuse-camp         /camps/day-camps        301
+/school-holiday-camps/  /camps/day-camps    301
+/school-holiday-camps   /camps/day-camps    301
+/schools/           /programs/school-experience  301
+/schools            /programs/school-experience  301
+/services/          /programs               301
+/services           /programs               301
+
+# Additional legacy WordPress URL redirects
+/book-a-service/        /contact                301
+/book-a-service         /contact                301
+/book-now/              /contact                301
+/book-now               /contact                301
+/summer-camp-2/         /camps/summer           301
+/summer-camp-2          /camps/summer           301
+/activities/            /programs               301
+/activities             /programs               301
+
+# Redirect legacy/auto-generated sitemaps to the canonical sitemap
+/page-sitemap.xml   /sitemap.xml            301
+/wp-sitemap.xml     /sitemap.xml            301
+/sitemap_index.xml  /sitemap.xml            301
+
+# Handle SPA routing - must be last
+/*    /index.html   200

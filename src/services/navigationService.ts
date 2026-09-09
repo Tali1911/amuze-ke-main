@@ -109,6 +109,37 @@ class NavigationService {
       return false;
     }
   }
+
+  async updateNavigationLabel(navKey: string, label: string): Promise<boolean> {
+    try {
+      const trimmed = label.trim();
+      if (!trimmed) return false;
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('❌ Auth error updating label:', authError);
+        return false;
+      }
+
+      const { error } = await (supabase as any)
+        .from('navigation_settings')
+        .update({
+          label: trimmed,
+          updated_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('nav_key', navKey);
+
+      if (error) {
+        console.error('❌ Error updating navigation label:', error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('❌ Unexpected error updating navigation label:', error);
+      return false;
+    }
+  }
 }
 
 export const navigationService = NavigationService.getInstance();

@@ -238,8 +238,12 @@ const DayCampsProgram = ({ campTitle }: DayCampsProgramProps) => {
           },
           invoiceDetails: {
             totalAmount: totalAmount,
-            paymentMethod: buttonType === 'pay' ? 'online_payment' : 'cash'
+            // No online charge is taken in this flow — never claim it was paid online
+            paymentMethod: 'cash',
+            paymentStatus: 'unpaid' as const,
+            amountPaid: 0
           }
+
         }
       });
       

@@ -122,7 +122,7 @@ const defaultProgramConfigs: { [key: string]: ProgramFormConfig } = {
       meal: { label: "Meal" },
       allergies: { label: "Allergies (Optional)", placeholder: "Please list any allergies or dietary restrictions" },
       email: { label: "Email", placeholder: "your@email.com", required: true },
-      phone: { label: "Phone Number", placeholder: "+254 700 000 000", required: true },
+      phone: { label: "Phone Number", placeholder: "+254 114 705763", required: true },
     },
     buttons: {
       submit: "Submit Registration",
@@ -253,7 +253,7 @@ const defaultProgramConfigs: { [key: string]: ProgramFormConfig } = {
       decor: { label: "Decoration" },
       catering: { label: "Catering" },
       email: { label: "Email", placeholder: "your@email.com", required: true },
-      phone: { label: "Phone Number", placeholder: "+254 700 000 000", required: true },
+      phone: { label: "Phone Number", placeholder: "+254 114 705763", required: true },
     },
     buttons: {
       submit: "Book Experience",
@@ -314,7 +314,7 @@ const defaultProgramConfigs: { [key: string]: ProgramFormConfig } = {
       photography: { label: "Professional Photography" },
       activities: { label: "Special Activities (Rock Climbing, Kayaking)" },
       email: { label: "Email", placeholder: "your@email.com", required: true },
-      phone: { label: "Phone Number", placeholder: "+254 700 000 000", required: true },
+      phone: { label: "Phone Number", placeholder: "+254 114 705763", required: true },
     },
     buttons: {
       submit: "Book Party",

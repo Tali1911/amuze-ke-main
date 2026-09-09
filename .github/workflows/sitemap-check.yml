@@ -1,0 +1,36 @@
+name: Sitemap check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sitemap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build (regenerates public/sitemap.xml via prebuild)
+        run: bun run build
+
+      - name: Serve the build
+        run: |
+          bunx --bun serve dist -s -l 8080 > /tmp/serve.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://localhost:8080/ && exit 0
+            sleep 1
+          done
+          echo "static server did not start"; cat /tmp/serve.log; exit 1
+
+      - name: Verify sitemap URLs match the route map and return 200
+        env:
+          SITEMAP_BASE_URL: http://localhost:8080
+        run: bun run check:sitemap

@@ -101,34 +101,30 @@ const SimpleDateSelector: React.FC<SimpleDateSelectorProps> = ({
               </button>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {weekDates.map(dateStr => {
                 const date = parseLocalDate(dateStr);
                 const isSelected = selectedDates.includes(dateStr);
-                const checkboxId = `date-${dateStr}`;
-                
+
                 return (
-                  <div
+                  <button
                     key={dateStr}
-                    className={`flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-colors ${
-                      isSelected 
-                        ? 'bg-primary/10 border-primary' 
+                    type="button"
+                    role="checkbox"
+                    aria-checked={isSelected}
+                    onClick={() => handleDateToggle(dateStr, !isSelected)}
+                    disabled={disabled}
+                    className={`text-left rounded-md border p-2.5 transition-colors ${
+                      isSelected
+                        ? 'bg-primary/10 border-primary'
                         : 'bg-background hover:bg-muted/50 border-border'
-                    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
-                    <Checkbox
-                      id={checkboxId}
-                      checked={isSelected}
-                      disabled={disabled}
-                      onCheckedChange={(v) => handleDateToggle(dateStr, v === true)}
-                    />
-                    <Label htmlFor={checkboxId} className="cursor-pointer flex-1">
-                      <span className="font-medium">{format(date, 'EEEE')}</span>
-                      <span className="text-muted-foreground ml-2 text-sm">
-                        {format(date, 'MMM d, yyyy')}
-                      </span>
-                    </Label>
-                  </div>
+                    <div className="font-bold text-sm text-foreground leading-tight">{format(date, 'EEEE')}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {format(date, 'MMM d, yyyy')}
+                    </div>
+                  </button>
                 );
               })}
             </div>

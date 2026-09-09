@@ -186,7 +186,7 @@ const handler = async (req: Request): Promise<Response> => {
             ${isCheckIn ? `
               <div style="background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
                 <p style="margin: 0; color: #0369a1;">
-                  <strong>📍 Location:</strong> Karura Forest, Gate F, Thigiri Ridge<br>
+                  <strong>📍 Location:</strong> Sigiria Karura Forest Gate F entrance (Sigiria coffee house)<br>
                   <strong>⏰ Pick-up Time:</strong> Full Day: 5:00 PM / Half Day: 12:00 PM
                 </p>
               </div>

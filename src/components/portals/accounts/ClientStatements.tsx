@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useDragScroll } from '@/hooks/useDragScroll';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { displayLocation } from '@/lib/locationDisplay';
 
 // Helper to work with untyped table
 const fromTable = (tableName: string) => supabase.from(tableName as any);
@@ -29,7 +31,16 @@ interface AttendanceRecord {
   email: string;
   phone: string;
   paid_at?: string;
+  /** true when this is the first (charge-bearing) record for a child but no amount could be resolved */
+  charge_missing?: boolean;
+  /** true when the row is a ledger item with no matching attendance record */
+  ledger_only?: boolean;
 }
+
+const normalizeName = (name: string) => (name || '').trim().toLowerCase();
+const ledgerKey = (registrationId: string, childName: string) =>
+  `${registrationId}::${normalizeName(childName)}`;
+
 
 interface ActionItemRecord {
   id: string;
@@ -58,7 +69,10 @@ interface ClientSummary {
   // Outstanding from accounts_action_items (source of truth)
   actionItemsOutstanding: number;
   actionItemsPending: number;
+  /** true when at least one charge could not be resolved (data gap) */
+  chargesMissing?: boolean;
 }
+
 
 interface StatementLine {
   date: string;
@@ -68,48 +82,65 @@ interface StatementLine {
   balance: number;
 }
 
+const formatKes = (amount: number) => `KES ${Math.abs(Math.round(amount)).toLocaleString()}`;
+const balanceLabel = (balance: number) =>
+  balance > 0 ? formatKes(balance) : balance < 0 ? `${formatKes(balance)} credit` : 'KES 0';
+
 const buildStatementLines = (client: ClientSummary): StatementLine[] => {
+
   const sortedRecords = [...client.records].sort(
     (a, b) => new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime()
   );
 
   const lines: StatementLine[] = [];
-  const seenPaymentRegIds = new Set<string>();
+  const seenPaymentKeys = new Set<string>();
 
   sortedRecords.forEach(record => {
+    const campLabel = record.camp_type || 'Camp';
     if (record.amount_due > 0) {
-      // Charge line — only the first attendance per registration+child carries a charge
+      // Charge line — only the first record per registration + child carries a charge
       lines.push({
         date: record.check_in_time,
-        description: `${record.child_name} — ${record.camp_type || 'Camp'} at ${record.location || 'N/A'}`,
+        description: `${record.child_name} — ${campLabel}${record.location ? ` at ${displayLocation(record.location) || record.location}` : ''}`,
         charges: record.amount_due,
         payments: 0,
         balance: 0,
       });
-    } else {
+    } else if (record.charge_missing) {
+      // Charge could not be resolved from the ledger or the registration — flag it
+      lines.push({
+        date: record.check_in_time,
+        description: `${record.child_name} — ${campLabel} (amount not recorded)`,
+        charges: 0,
+        payments: 0,
+        balance: 0,
+      });
+    } else if (!record.ledger_only) {
       // Subsequent check-in — informational only, no monetary impact
       lines.push({
         date: record.check_in_time,
-        description: `${record.child_name} — check-in (${record.camp_type || 'Camp'})`,
+        description: `${record.child_name} — check-in (${campLabel})`,
         charges: 0,
         payments: 0,
         balance: 0,
       });
     }
 
-    // Add payment line once per registration (avoid double-counting)
-    if (!seenPaymentRegIds.has(record.registration_id) && record.amount_paid > 0) {
-      seenPaymentRegIds.add(record.registration_id);
+    // Add payment line once per registration + child (avoid double-counting)
+    const payKey = `${record.registration_id}::${(record.child_name || '').trim().toLowerCase()}`;
+    if (!seenPaymentKeys.has(payKey) && record.amount_paid > 0) {
+      seenPaymentKeys.add(payKey);
       const paymentDate = record.paid_at || record.check_in_time;
       lines.push({
         date: paymentDate,
-        description: `Payment received — Ref: ${record.registration_id.slice(0, 8)}${record.paid_at ? ` (${format(new Date(record.paid_at), 'dd MMM yyyy')})` : ''}`,
+        description: `Payment received — ${record.child_name} — Ref: ${record.registration_id.slice(0, 8)}`,
         charges: 0,
         payments: record.amount_paid,
         balance: 0,
       });
     }
   });
+
 
   lines.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -130,13 +161,15 @@ const ClientStatements: React.FC = () => {
   const [actionItems, setActionItems] = useState<ActionItemRecord[]>([]);
   const [selectedClient, setSelectedClient] = useState<ClientSummary | null>(null);
   const statementRef = useRef<HTMLDivElement>(null);
+  const mainTableScroll = useDragScroll();
+  const statementTableScroll = useDragScroll();
 
   const loadData = async () => {
     try {
       setLoading(true);
 
-      // Load all three data sources in parallel
-      const [attendanceResult, actionItemsResult, paymentsResult] = await Promise.all([
+      // Load all data sources in parallel
+      const [attendanceResult, actionItemsPendingResult, actionItemsAllResult, paymentsResult] = await Promise.all([
         supabase
           .from('camp_attendance')
           .select('id, check_in_time, child_name, registration_id')
@@ -144,14 +177,32 @@ const ClientStatements: React.FC = () => {
         fromTable('accounts_action_items')
           .select('*')
           .eq('status', 'pending'),
+        fromTable('accounts_action_items')
+          .select('id, registration_id, child_name, parent_name, email, phone, camp_type, amount_due, amount_paid, status, created_at'),
         fromTable('payments')
           .select('id, registration_id, amount, created_at')
           .order('created_at', { ascending: false }),
       ]);
 
       // Process action items (always available - source of truth for outstanding)
-      const aiData = (actionItemsResult.data || []) as unknown as ActionItemRecord[];
+      const aiData = (actionItemsPendingResult.data || []) as unknown as ActionItemRecord[];
       setActionItems(aiData);
+
+      // Build parent-info map keyed by registration_id from ALL action items (any status)
+      // Used to enrich attendance records when camp_registrations RLS blocks the join
+      const aiAllData = ((actionItemsAllResult.data || []) as unknown as ActionItemRecord[]);
+      const aiSource = aiAllData.length > 0 ? aiAllData : aiData;
+      const parentInfoByRegId = new Map<string, { parent_name: string; email: string; phone: string; camp_type: string }>();
+      aiSource.forEach(item => {
+        if (!item.registration_id) return;
+        if (parentInfoByRegId.has(item.registration_id)) return;
+        parentInfoByRegId.set(item.registration_id, {
+          parent_name: item.parent_name || '',
+          email: item.email || '',
+          phone: item.phone || '',
+          camp_type: item.camp_type || '',
+        });
+      });
 
       // Build actual payments map: registration_id -> total paid
       const paymentsData = (paymentsResult.data || []) as any[];
@@ -167,7 +218,8 @@ const ClientStatements: React.FC = () => {
 
       // Process attendance data
       const attendance = attendanceResult.data || [];
-      console.log('camp_attendance records:', attendance.length, 'action_items pending:', aiData.length, 'payments:', paymentsData.length);
+      console.log('camp_attendance records:', attendance.length, 'action_items pending:', aiData.length, 'payments:', paymentsData.length, 'parent-info map size:', parentInfoByRegId.size);
+
 
       if (attendance.length > 0) {
         // Primary path: load from camp_attendance + registrations
@@ -184,8 +236,21 @@ const ClientStatements: React.FC = () => {
         const regMap = new Map((registrations || []).map((r: any) => [r.id, r]));
         console.log('Registrations loaded:', (registrations || []).length, 'for', regIds.length, 'unique IDs');
 
+        // Ledger (accounts_action_items) is the source of truth for charges/payments.
+        const ledgerByKey = new Map<string, ActionItemRecord>();
+        aiAllData.forEach(item => {
+          if (!item.registration_id) return;
+          const key = ledgerKey(item.registration_id, item.child_name || '');
+          const existing = ledgerByKey.get(key);
+          // Prefer the item with the highest amount_due (most complete record)
+          if (!existing || Number(item.amount_due) > Number(existing.amount_due)) {
+            ledgerByKey.set(key, item);
+          }
+        });
+
         // Deduplicate by parent+child+camp_type to handle duplicate registrations from retries
         const seenChargeKeys = new Set<string>();
+        const usedLedgerKeys = new Set<string>();
 
         const records: AttendanceRecord[] = attendance.map(att => {
           const reg = regMap.get(att.registration_id) as any;
@@ -206,21 +271,36 @@ const ClientStatements: React.FC = () => {
             childAmount = Math.round((Number(reg.total_amount) || 0) / childrenCount);
           }
 
+          // Enrich from action-items map when the camp_registrations join is blocked/missing
+          const aiInfo = parentInfoByRegId.get(att.registration_id);
+          const parentName = reg?.parent_name || aiInfo?.parent_name || 'Unknown';
+          const parentEmail = reg?.email || aiInfo?.email || '';
+          const parentPhoneVal = reg?.phone || aiInfo?.phone || '';
+          const campTypeVal = reg?.camp_type || aiInfo?.camp_type || '';
+
           // Deduplicate: use parent_phone+child_name+camp_type to prevent duplicate charges from retry registrations
-          const parentPhone = reg?.phone || '';
-          const campType = reg?.camp_type || '';
-          const chargeKey = `${parentPhone}::${att.child_name}::${campType}`;
+          const chargeKey = `${parentPhoneVal}::${att.child_name}::${campTypeVal}`;
           const isFirstCharge = !seenChargeKeys.has(chargeKey);
           seenChargeKeys.add(chargeKey);
 
-          const amountDue = isFirstCharge ? childAmount : 0;
+          // Ledger item for this registration + child (authoritative charge)
+          const lKey = ledgerKey(att.registration_id, att.child_name);
+          const ledgerItem = ledgerByKey.get(lKey);
+          if (ledgerItem) usedLedgerKeys.add(lKey);
 
-          // Use actual payment data from payments table instead of estimating
+          const ledgerDue = Number(ledgerItem?.amount_due) || 0;
+          const resolvedCharge = ledgerDue > 0 ? ledgerDue : childAmount;
+          const amountDue = isFirstCharge ? resolvedCharge : 0;
+
+          // Payments: prefer the ledger's recorded amount_paid, then the payments table
           let amountPaid = 0;
           if (isFirstCharge) {
             const paymentInfo = paymentsByRegId.get(att.registration_id);
+            const ledgerPaid = Number(ledgerItem?.amount_paid) || 0;
             if (reg?.payment_status === 'paid') {
-              amountPaid = childAmount; // Fully paid
+              amountPaid = resolvedCharge; // Fully paid
+            } else if (ledgerPaid > 0) {
+              amountPaid = Math.min(ledgerPaid, resolvedCharge || ledgerPaid);
             } else if (paymentInfo && paymentInfo.totalPaid > 0) {
               // Distribute actual payment amount per child
               amountPaid = Math.round(paymentInfo.totalPaid / childrenCount);
@@ -232,19 +312,50 @@ const ClientStatements: React.FC = () => {
             check_in_time: att.check_in_time,
             child_name: att.child_name,
             registration_id: att.registration_id,
-            camp_type: reg?.camp_type || '',
+            camp_type: campTypeVal,
             location: reg?.location || 'Kurura Gate F',
             amount_due: amountDue,
             amount_paid: amountPaid,
             payment_status: reg?.payment_status || 'unpaid',
-            parent_name: reg?.parent_name || 'Unknown',
-            email: reg?.email || '',
-            phone: reg?.phone || '',
+            parent_name: parentName,
+            email: parentEmail,
+            phone: parentPhoneVal,
             paid_at: reg?.payment_status === 'paid' ? reg?.updated_at : (paymentsByRegId.get(att.registration_id)?.paidAt || undefined),
+            charge_missing: isFirstCharge && resolvedCharge === 0,
           };
         });
 
+        // Include ledger items that never matched an attendance row so statement
+        // charges reconcile with Pending Collections / Total Outstanding.
+        aiAllData.forEach(item => {
+          if (!item.registration_id) return;
+          const lKey = ledgerKey(item.registration_id, item.child_name || '');
+          if (usedLedgerKeys.has(lKey)) return;
+          usedLedgerKeys.add(lKey);
+          const reg = regMap.get(item.registration_id) as any;
+          const amountDue = Number(item.amount_due) || 0;
+          const amountPaid = reg?.payment_status === 'paid' ? amountDue : (Number(item.amount_paid) || 0);
+          records.push({
+            id: `ledger-${item.id}`,
+            check_in_time: item.created_at || new Date().toISOString(),
+            child_name: item.child_name || 'Unknown',
+            registration_id: item.registration_id,
+            camp_type: reg?.camp_type || item.camp_type || '',
+            location: reg?.location || '',
+            amount_due: amountDue,
+            amount_paid: amountPaid,
+            payment_status: reg?.payment_status || item.status || 'pending',
+            parent_name: reg?.parent_name || item.parent_name || 'Unknown',
+            email: reg?.email || item.email || '',
+            phone: reg?.phone || item.phone || '',
+            paid_at: reg?.payment_status === 'paid' ? reg?.updated_at : undefined,
+            charge_missing: amountDue === 0,
+            ledger_only: true,
+          });
+        });
+
         setAttendanceData(records);
+
       } else if (aiData.length > 0) {
         // Fallback: build records from accounts_action_items if attendance table is empty/restricted
         console.log('Falling back to accounts_action_items for attendance data');
@@ -302,18 +413,24 @@ const ClientStatements: React.FC = () => {
   }, []);
 
   // Helper: build a stable grouping key for a parent
-  const getParentKey = (phone: string, email: string, parentName: string) => {
-    // Prefer phone, then email, then parent_name — but never group all "Unknown" together
-    if (phone) return phone;
-    if (email) return email;
-    return parentName || 'unknown';
+  const getParentKey = (phone: string, email: string, parentName: string, registrationId?: string) => {
+    // Prefer phone, then email, then a real parent name.
+    // Never collapse all unknown/blank records into one group — fall back to registration_id.
+    if (phone) return `p:${phone}`;
+    if (email) return `e:${email.toLowerCase()}`;
+    if (parentName && parentName.trim() && parentName.trim().toLowerCase() !== 'unknown') {
+      return `n:${parentName.trim().toLowerCase()}`;
+    }
+    if (registrationId) return `r:${registrationId}`;
+    return `x:unknown-${Math.random().toString(36).slice(2)}`;
   };
+
 
   // Build per-parent outstanding from accounts_action_items (source of truth, matches Pending Collections)
   const parentOutstandingMap = useMemo(() => {
     const map = new Map<string, { totalDue: number; totalPaid: number; itemCount: number }>();
     actionItems.forEach(item => {
-      const key = getParentKey(item.phone || '', item.email || '', item.parent_name);
+      const key = getParentKey(item.phone || '', item.email || '', item.parent_name, item.registration_id);
       const existing = map.get(key) || { totalDue: 0, totalPaid: 0, itemCount: 0 };
       existing.totalDue += Number(item.amount_due) || 0;
       existing.totalPaid += Number(item.amount_paid) || 0;
@@ -327,7 +444,7 @@ const ClientStatements: React.FC = () => {
     const clientMap = new Map<string, ClientSummary>();
 
     attendanceData.forEach(record => {
-      const key = getParentKey(record.phone, record.email, record.parent_name);
+      const key = getParentKey(record.phone, record.email, record.parent_name, record.registration_id);
       if (!clientMap.has(key)) {
         clientMap.set(key, {
           parentName: record.parent_name,
@@ -344,7 +461,7 @@ const ClientStatements: React.FC = () => {
         });
       }
       const client = clientMap.get(key)!;
-      client.totalVisits += 1;
+      if (!record.ledger_only) client.totalVisits += 1;
       // Only count charges from first-occurrence records (amount_due > 0)
       client.totalCharged += record.amount_due;
       client.records.push(record);
@@ -353,18 +470,21 @@ const ClientStatements: React.FC = () => {
       }
     });
 
-    // Calculate payments (deduplicate by registration) and derive balance from ledger
+    // Calculate payments (deduplicate per registration + child) and derive balance from ledger
     clientMap.forEach((client, key) => {
-      const seenRegIds = new Set<string>();
+      const seenPaymentKeys = new Set<string>();
       client.records.forEach(r => {
-        if (!seenRegIds.has(r.registration_id)) {
-          seenRegIds.add(r.registration_id);
+        const k = ledgerKey(r.registration_id, r.child_name);
+        if (!seenPaymentKeys.has(k)) {
+          seenPaymentKeys.add(k);
           client.totalPaid += r.amount_paid;
         }
       });
 
-      // Balance = charges - payments (internally consistent with ledger)
-      client.balanceDue = Math.max(0, client.totalCharged - client.totalPaid);
+      // Balance = charges - payments. Kept signed so credits/data gaps are visible
+      // instead of being silently hidden as "KES 0".
+      client.balanceDue = client.totalCharged - client.totalPaid;
+      client.chargesMissing = client.records.some(r => r.charge_missing);
 
       // Track action items info for display badges
       const actionData = parentOutstandingMap.get(key);
@@ -373,6 +493,7 @@ const ClientStatements: React.FC = () => {
         client.actionItemsPending = actionData.itemCount;
       }
     });
+
 
     // Sort: clients with balance first, then alphabetically
     return Array.from(clientMap.values()).sort((a, b) => {
@@ -416,7 +537,7 @@ const ClientStatements: React.FC = () => {
     doc.setFontSize(11);
     doc.text(`Total Charges: KES ${client.totalCharged.toLocaleString()}`, 130, 30);
     doc.text(`Total Payments: KES ${client.totalPaid.toLocaleString()}`, 130, 36);
-    doc.text(`Balance Due: KES ${client.balanceDue.toLocaleString()}`, 130, 42);
+    doc.text(`Balance Due: ${balanceLabel(client.balanceDue)}`, 130, 42);
 
     autoTable(doc, {
       startY: 62,
@@ -428,7 +549,7 @@ const ClientStatements: React.FC = () => {
         line.payments > 0 ? `KES ${line.payments.toLocaleString()}` : '—',
         `KES ${line.balance.toLocaleString()}`,
       ]),
-      foot: [['', 'Totals', `KES ${client.totalCharged.toLocaleString()}`, `KES ${client.totalPaid.toLocaleString()}`, `KES ${client.balanceDue.toLocaleString()}`]],
+      foot: [['', 'Totals', `KES ${client.totalCharged.toLocaleString()}`, `KES ${client.totalPaid.toLocaleString()}`, balanceLabel(client.balanceDue)]],
       styles: { fontSize: 8 },
       headStyles: { fillColor: [34, 87, 60] },
       footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
@@ -496,7 +617,7 @@ const ClientStatements: React.FC = () => {
         c.children.join(', '),
         `KES ${c.totalCharged.toLocaleString()}`,
         `KES ${c.totalPaid.toLocaleString()}`,
-        `KES ${c.balanceDue.toLocaleString()}`,
+        balanceLabel(c.balanceDue),
       ]),
       foot: [['', '', 'Totals', `KES ${grandCharged.toLocaleString()}`, `KES ${grandPaid.toLocaleString()}`, `KES ${grandBalance.toLocaleString()}`]],
       styles: { fontSize: 7 },
@@ -514,7 +635,7 @@ const ClientStatements: React.FC = () => {
       doc.setFontSize(9);
       doc.text(`Email: ${client.email}  |  Phone: ${client.phone}`, 14, 28);
       doc.text(`Children: ${client.children.join(', ')}`, 14, 34);
-      doc.text(`Charges: KES ${client.totalCharged.toLocaleString()}  |  Paid: KES ${client.totalPaid.toLocaleString()}  |  Balance: KES ${client.balanceDue.toLocaleString()}`, 14, 40);
+      doc.text(`Charges: KES ${client.totalCharged.toLocaleString()}  |  Paid: KES ${client.totalPaid.toLocaleString()}  |  Balance: ${balanceLabel(client.balanceDue)}`, 14, 40);
 
       autoTable(doc, {
         startY: 46,
@@ -576,7 +697,7 @@ const ClientStatements: React.FC = () => {
             Statement Date: ${format(new Date(), 'dd MMM yyyy')}<br/>
             Total Charges: KES ${client.totalCharged.toLocaleString()}<br/>
             Total Payments: <span class="green">KES ${client.totalPaid.toLocaleString()}</span><br/>
-            Balance Due: <span class="${client.balanceDue > 0 ? 'red' : 'green'}">KES ${client.balanceDue.toLocaleString()}</span>
+            Balance Due: <span class="${client.balanceDue > 0 ? 'red' : 'green'}">${balanceLabel(client.balanceDue)}</span>
           </div>
         </div>
         <table>
@@ -595,7 +716,7 @@ const ClientStatements: React.FC = () => {
               <td colspan="2" class="text-right">Totals</td>
               <td class="text-right">KES ${client.totalCharged.toLocaleString()}</td>
               <td class="text-right green">KES ${client.totalPaid.toLocaleString()}</td>
-              <td class="text-right ${client.balanceDue > 0 ? 'red' : 'green'}">KES ${client.balanceDue.toLocaleString()}</td>
+              <td class="text-right ${client.balanceDue > 0 ? 'red' : 'green'}">${balanceLabel(client.balanceDue)}</td>
             </tr>
           </tbody>
         </table>
@@ -648,27 +769,42 @@ const ClientStatements: React.FC = () => {
           <Card className="p-3">
             <div className="text-xs text-muted-foreground">Total Charges</div>
             <div className="text-lg font-bold">KES {client.totalCharged.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground mt-1">Amount owed for camp days booked</div>
           </Card>
           <Card className="p-3">
             <div className="text-xs text-muted-foreground">Total Payments</div>
             <div className="text-lg font-bold text-green-600">KES {client.totalPaid.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground mt-1">Money received from this family</div>
           </Card>
           <Card className="p-3">
             <div className="text-xs text-muted-foreground">Balance Due</div>
             <div className={`text-lg font-bold ${client.balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              KES {client.balanceDue.toLocaleString()}
+              {balanceLabel(client.balanceDue)}
             </div>
+            <div className="text-xs text-muted-foreground mt-1">Charges minus payments</div>
             {client.actionItemsPending > 0 && (
               <div className="text-xs text-muted-foreground mt-1">
-                {client.actionItemsPending} pending item{client.actionItemsPending > 1 ? 's' : ''}
+                {client.actionItemsPending} pending item{client.actionItemsPending > 1 ? 's' : ''} · outstanding {formatKes(client.actionItemsOutstanding)}
               </div>
             )}
           </Card>
         </div>
 
+        {client.chargesMissing && (
+          <div className="text-xs rounded-md border border-destructive/40 bg-destructive/5 p-2 text-destructive">
+            Some charges could not be resolved for this client (no amount recorded on the registration or
+            the pending-collections ledger), so Total Charges may be understated.
+          </div>
+        )}
+
+
         {/* Statement Table */}
-        <div className="overflow-x-auto border rounded-lg">
-          <Table>
+          <Table
+            containerRef={statementTableScroll.ref}
+            containerProps={statementTableScroll.handlers}
+            containerClassName="max-h-[50vh] overflow-x-scroll overflow-y-auto overscroll-contain touch-pan-y border rounded-lg cursor-grab active:cursor-grabbing [scrollbar-gutter:stable_both-edges] sm:max-h-[55vh]"
+            className="min-w-[52rem]"
+          >
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead>Date</TableHead>
@@ -699,18 +835,17 @@ const ClientStatements: React.FC = () => {
                 <TableCell className="text-right">KES {client.totalCharged.toLocaleString()}</TableCell>
                 <TableCell className="text-right text-green-600">KES {client.totalPaid.toLocaleString()}</TableCell>
                 <TableCell className={`text-right ${client.balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  KES {client.balanceDue.toLocaleString()}
+                  {balanceLabel(client.balanceDue)}
                 </TableCell>
               </TableRow>
             </TableBody>
           </Table>
-        </div>
       </div>
     );
   };
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 max-w-full space-y-4">
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -773,8 +908,12 @@ const ClientStatements: React.FC = () => {
               {searchTerm ? 'No clients found matching your search' : 'No attendance records found'}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+              <Table
+                containerRef={mainTableScroll.ref}
+                containerProps={mainTableScroll.handlers}
+                containerClassName="max-h-[60vh] overflow-x-scroll overflow-y-auto overscroll-contain touch-pan-y cursor-grab active:cursor-grabbing [scrollbar-gutter:stable_both-edges] sm:max-h-[65vh] lg:max-h-[70vh]"
+                className="min-w-[68rem]"
+              >
                 <TableHeader>
                   <TableRow>
                     <TableHead>Parent Name</TableHead>
@@ -804,11 +943,16 @@ const ClientStatements: React.FC = () => {
                       <TableCell className="text-right">
                         {client.balanceDue > 0 ? (
                           <Badge variant="destructive" className="text-xs">
-                            KES {client.balanceDue.toLocaleString()}
+                            {balanceLabel(client.balanceDue)}
+                          </Badge>
+                        ) : client.balanceDue < 0 ? (
+                          <Badge variant="secondary" className="text-xs">
+                            {balanceLabel(client.balanceDue)}
                           </Badge>
                         ) : (
                           <Badge variant="default" className="text-xs bg-green-600">Paid</Badge>
                         )}
+
                       </TableCell>
                       <TableCell className="text-right">
                         <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setSelectedClient(client); }}>
@@ -819,7 +963,6 @@ const ClientStatements: React.FC = () => {
                   ))}
                 </TableBody>
               </Table>
-            </div>
           )}
         </CardContent>
       </Card>

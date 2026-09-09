@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useClientAuth } from '@/hooks/useClientAuth';
-import SignUpBenefitsDialog from '@/components/SignUpBenefitsDialog';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
-import AutoFilledBadge from '@/components/ui/AutoFilledBadge';
+import { useClientAuth } from "@/hooks/useClientAuth";
+import SignUpBenefitsDialog from "@/components/SignUpBenefitsDialog";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
+import AutoFilledBadge from "@/components/ui/AutoFilledBadge";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,15 +14,28 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { PartyPopper, Users, Target, ArrowLeft, CheckCircle, Mountain, Compass, Flame, Focus, Building, School, Heart } from "lucide-react";
+import {
+  PartyPopper,
+  Users,
+  Target,
+  ArrowLeft,
+  CheckCircle,
+  Mountain,
+  Compass,
+  Flame,
+  Focus,
+  Building,
+  School,
+  Heart,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import adventureImage from "@/assets/adventure.jpg";
 import DatePickerField from "./DatePickerField";
 import { RefundPolicyDialog } from "./RefundPolicyDialog";
-import { ParticipationConsentDialog } from './ParticipationConsentDialog';
-import { leadsService } from '@/services/leadsService';
-import { performSecurityChecks, recordSubmission } from '@/services/formSecurityService';
-import { useTeamBuildingPageConfig } from '@/hooks/useTeamBuildingPageConfig';
+import { ParticipationConsentDialog } from "./ParticipationConsentDialog";
+import { leadsService } from "@/services/leadsService";
+import { performSecurityChecks, recordSubmission } from "@/services/formSecurityService";
+import { useTeamBuildingPageConfig } from "@/hooks/useTeamBuildingPageConfig";
 import DynamicMedia from "@/components/content/DynamicMedia";
 import RegistrationPageSkeleton from "@/components/skeletons/RegistrationPageSkeleton";
 
@@ -33,7 +46,7 @@ const teamBuildingSchema = z.object({
   ageRange: z.enum(["3-below", "4-6", "7-10", "11-13", "14-17", "18+"]),
   package: z.enum(["adventure", "bushcraft", "nature-carnival", "family-corporate"]),
   eventDate: z.date({
-    required_error: "Event date is required"
+    required_error: "Event date is required",
   }),
   location: z.enum(["karura-gate-f", "karura-gate-a", "tigoni", "ngong"]),
   decor: z.boolean().default(false),
@@ -41,7 +54,9 @@ const teamBuildingSchema = z.object({
   email: z.string().email("Invalid email address"),
   phone: z.string().min(1, "Phone number is required").max(20),
   consent: z.boolean().default(false),
-  participationConsent: z.literal(true, { errorMap: () => ({ message: 'You must read and accept the participation form' }) })
+  participationConsent: z.literal(true, {
+    errorMap: () => ({ message: "You must read and accept the participation form" }),
+  }),
 });
 
 type TeamBuildingFormData = z.infer<typeof teamBuildingSchema>;
@@ -80,66 +95,83 @@ interface ActivityDetail {
   benefits: string[];
 }
 
-const teamBuildingActivities: ActivityDetail[] = [{
-  id: 'outdoor-challenges',
-  title: 'Outdoor Challenges',
-  icon: <Target className="w-6 h-6" />,
-  shortDescription: 'Collaborative problem-solving and adventure-based tasks.',
-  fullDescription: 'Collaborative problem-solving and adventure-based tasks that foster teamwork and creative thinking. Teams work together to overcome obstacles, communicate effectively, and achieve shared goals.',
-  benefits: ['Teamwork', 'Creative Thinking', 'Communication', 'Shared Achievement']
-}, {
-  id: 'leadership-programs',
-  title: 'Leadership Programs',
-  icon: <Users className="w-6 h-6" />,
-  shortDescription: 'Scenario-based challenges for decision-making and leadership.',
-  fullDescription: 'Scenario-based challenges designed to develop decision-making, communication, and leadership skills. Participants take on leadership roles in dynamic outdoor scenarios that mirror workplace challenges.',
-  benefits: ['Decision-Making', 'Communication', 'Leadership Skills', 'Strategic Thinking']
-}, {
-  id: 'bushcraft-survival',
-  title: 'Bushcraft & Survival Skills',
-  icon: <Flame className="w-6 h-6" />,
-  shortDescription: 'Hands-on learning for resourcefulness and adaptability.',
-  fullDescription: 'Hands-on learning that encourages resourcefulness, teamwork, and adaptability. Teams learn practical outdoor skills including shelter building, fire safety, and navigation while building trust and cooperation.',
-  benefits: ['Resourcefulness', 'Teamwork', 'Adaptability', 'Trust Building']
-}, {
-  id: 'orienteering',
-  title: 'Orienteering & Navigation',
-  icon: <Compass className="w-6 h-6" />,
-  shortDescription: 'Map-reading and navigation skills through team challenges.',
-  fullDescription: 'Build map-reading and navigation skills while working together to overcome challenges. Teams navigate through natural terrain using maps and compasses, developing spatial awareness and collaborative problem-solving.',
-  benefits: ['Map Reading', 'Navigation', 'Spatial Awareness', 'Collaborative Problem-Solving']
-}, {
-  id: 'mountain-biking',
-  title: 'Mountain Biking & Adventure Trails',
-  icon: <Mountain className="w-6 h-6" />,
-  shortDescription: 'Promote trust and resilience through thrilling courses.',
-  fullDescription: 'Promote trust, resilience, and encouragement as teams tackle thrilling courses together. Participants support each other through challenging terrain, building confidence and team morale.',
-  benefits: ['Trust', 'Resilience', 'Encouragement', 'Team Morale']
-}, {
-  id: 'archery',
-  title: 'Archery Challenges',
-  icon: <Focus className="w-6 h-6" />,
-  shortDescription: 'Focus, precision, and encouragement in a competitive environment.',
-  fullDescription: 'Focus, precision, and encouragement in a fun, competitive environment. Team archery challenges build concentration while fostering friendly competition and mutual support.',
-  benefits: ['Focus', 'Precision', 'Friendly Competition', 'Mutual Support']
-}];
+const teamBuildingActivities: ActivityDetail[] = [
+  {
+    id: "outdoor-challenges",
+    title: "Outdoor Challenges",
+    icon: <Target className="w-6 h-6" />,
+    shortDescription: "Collaborative problem-solving and adventure-based tasks.",
+    fullDescription:
+      "Collaborative problem-solving and adventure-based tasks that foster teamwork and creative thinking. Teams work together to overcome obstacles, communicate effectively, and achieve shared goals.",
+    benefits: ["Teamwork", "Creative Thinking", "Communication", "Shared Achievement"],
+  },
+  {
+    id: "leadership-programs",
+    title: "Leadership Programs",
+    icon: <Users className="w-6 h-6" />,
+    shortDescription: "Scenario-based challenges for decision-making and leadership.",
+    fullDescription:
+      "Scenario-based challenges designed to develop decision-making, communication, and leadership skills. Participants take on leadership roles in dynamic outdoor scenarios that mirror workplace challenges.",
+    benefits: ["Decision-Making", "Communication", "Leadership Skills", "Strategic Thinking"],
+  },
+  {
+    id: "bushcraft-survival",
+    title: "Bushcraft & Survival Skills",
+    icon: <Flame className="w-6 h-6" />,
+    shortDescription: "Hands-on learning for resourcefulness and adaptability.",
+    fullDescription:
+      "Hands-on learning that encourages resourcefulness, teamwork, and adaptability. Teams learn practical outdoor skills including shelter building, fire safety, and navigation while building trust and cooperation.",
+    benefits: ["Resourcefulness", "Teamwork", "Adaptability", "Trust Building"],
+  },
+  {
+    id: "orienteering",
+    title: "Orienteering & Navigation",
+    icon: <Compass className="w-6 h-6" />,
+    shortDescription: "Map-reading and navigation skills through team challenges.",
+    fullDescription:
+      "Build map-reading and navigation skills while working together to overcome challenges. Teams navigate through natural terrain using maps and compasses, developing spatial awareness and collaborative problem-solving.",
+    benefits: ["Map Reading", "Navigation", "Spatial Awareness", "Collaborative Problem-Solving"],
+  },
+  {
+    id: "mountain-biking",
+    title: "Mountain Biking & Adventure Trails",
+    icon: <Mountain className="w-6 h-6" />,
+    shortDescription: "Promote trust and resilience through thrilling courses.",
+    fullDescription:
+      "Promote trust, resilience, and encouragement as teams tackle thrilling courses together. Participants support each other through challenging terrain, building confidence and team morale.",
+    benefits: ["Trust", "Resilience", "Encouragement", "Team Morale"],
+  },
+  {
+    id: "archery",
+    title: "Archery Challenges",
+    icon: <Focus className="w-6 h-6" />,
+    shortDescription: "Focus, precision, and encouragement in a competitive environment.",
+    fullDescription:
+      "Focus, precision, and encouragement in a fun, competitive environment. Team archery challenges build concentration while fostering friendly competition and mutual support.",
+    benefits: ["Focus", "Precision", "Friendly Competition", "Mutual Support"],
+  },
+];
 
-const audienceTypes = [{
-  id: 'corporates',
-  title: 'Corporates',
-  icon: <Building className="w-6 h-6" />,
-  description: 'Enhance collaboration, leadership, and morale through outdoor challenges.'
-}, {
-  id: 'schools',
-  title: 'Schools',
-  icon: <School className="w-6 h-6" />,
-  description: 'Teach teamwork, leadership, and resilience to students/teachers in a safe, experiential setting.'
-}, {
-  id: 'community',
-  title: 'Community & Youth Groups',
-  icon: <Heart className="w-6 h-6" />,
-  description: 'Build confidence, cooperation, and problem-solving skills through active, hands-on learning.'
-}];
+const audienceTypes = [
+  {
+    id: "corporates",
+    title: "Corporates",
+    icon: <Building className="w-6 h-6" />,
+    description: "Enhance collaboration, leadership, and morale through outdoor challenges.",
+  },
+  {
+    id: "schools",
+    title: "Schools",
+    icon: <School className="w-6 h-6" />,
+    description: "Teach teamwork, leadership, and resilience to students/teachers in a safe, experiential setting.",
+  },
+  {
+    id: "community",
+    title: "Community & Youth Groups",
+    icon: <Heart className="w-6 h-6" />,
+    description: "Build confidence, cooperation, and problem-solving skills through active, hands-on learning.",
+  },
+];
 
 const TeamBuildingProgram = () => {
   const { isSignedIn, isLoading: authLoading, profile: clientProfile } = useClientAuth();
@@ -151,8 +183,8 @@ const TeamBuildingProgram = () => {
   // Listen for CMS updates
   useEffect(() => {
     const handleCMSUpdate = () => refresh?.();
-    window.addEventListener('cms-content-updated', handleCMSUpdate);
-    return () => window.removeEventListener('cms-content-updated', handleCMSUpdate);
+    window.addEventListener("cms-content-updated", handleCMSUpdate);
+    return () => window.removeEventListener("cms-content-updated", handleCMSUpdate);
   }, [refresh]);
 
   const {
@@ -162,14 +194,14 @@ const TeamBuildingProgram = () => {
     control,
     watch,
     reset,
-    formState: { errors, isSubmitting }
+    formState: { errors, isSubmitting },
   } = useForm<TeamBuildingFormData>({
     resolver: zodResolver(teamBuildingSchema),
     defaultValues: {
       decor: false,
       catering: false,
-      consent: false
-    }
+      consent: false,
+    },
   });
 
   const consent = watch("consent");
@@ -177,8 +209,11 @@ const TeamBuildingProgram = () => {
   // Benefits dialog for non-signed-in users
   useEffect(() => {
     if (authLoading) return;
-    if (isSignedIn) { setShowBenefitsDialog(false); return; }
-    if (!sessionStorage.getItem('benefits_dialog_dismissed')) {
+    if (isSignedIn) {
+      setShowBenefitsDialog(false);
+      return;
+    }
+    if (!sessionStorage.getItem("benefits_dialog_dismissed")) {
       const timer = setTimeout(() => setShowBenefitsDialog(true), 4000);
       return () => clearTimeout(timer);
     }
@@ -188,62 +223,75 @@ const TeamBuildingProgram = () => {
   useEffect(() => {
     if (clientProfile && isSignedIn) {
       const filled = new Set<string>();
-      if (clientProfile.email) { setValue('email', clientProfile.email); filled.add('email'); }
-      if (clientProfile.phone) { setValue('phone', clientProfile.phone); filled.add('phone'); }
+      if (clientProfile.email) {
+        setValue("email", clientProfile.email);
+        filled.add("email");
+      }
+      if (clientProfile.phone) {
+        setValue("phone", clientProfile.phone);
+        filled.add("phone");
+      }
       setAutoFilledFields(filled);
     }
   }, [clientProfile, isSignedIn, setValue]);
 
   const onSubmit = async (data: TeamBuildingFormData) => {
     // Security checks: prevent duplicates and rate limiting
-    const securityCheck = await performSecurityChecks(data, 'team-building');
+    const securityCheck = await performSecurityChecks(data, "team-building");
     if (!securityCheck.allowed) {
-      toast.error(securityCheck.message || 'Submission blocked. Please try again later.');
+      toast.error(securityCheck.message || "Submission blocked. Please try again later.");
       return;
     }
-    
+
     try {
-      const { teamBuildingService } = await import('@/services/programRegistrationService');
+      const { teamBuildingService } = await import("@/services/programRegistrationService");
       const registration = await teamBuildingService.create(data);
 
       await leadsService.createLead({
-        full_name: 'Team Building Inquiry',
+        full_name: "Team Building Inquiry",
         email: data.email,
         phone: data.phone,
-        program_type: 'team-building',
+        program_type: "team-building",
         program_name: data.package,
         form_data: data,
-        source: 'website_registration'
+        source: "website_registration",
       });
 
-      const { supabase } = await import('@/integrations/supabase/client');
-      const { data: emailData, error: emailError } = await supabase.functions.invoke('send-confirmation-email', {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data: emailData, error: emailError } = await supabase.functions.invoke("send-confirmation-email", {
         body: {
           email: data.email,
-          programType: 'team-building',
+          programType: "team-building",
           registrationDetails: {
             occasion: data.occasion,
             package: data.package,
             eventDate: data.eventDate,
             location: data.location,
-            registrationId: registration && 'id' in registration ? registration.id : undefined
-          }
-        }
+            registrationId: registration && "id" in registration ? registration.id : undefined,
+          },
+        },
       });
 
       if (emailError) {
         throw emailError;
       }
-      toast.success(cmsConfig?.formConfig?.messages?.successMessage || "Registration submitted successfully! Check your email for confirmation.");
-      
+      toast.success(
+        cmsConfig?.formConfig?.messages?.successMessage ||
+          "Registration submitted successfully! Check your email for confirmation.",
+      );
+
       // Record successful submission for duplicate prevention
-      await recordSubmission(data, 'team-building');
-      
+      await recordSubmission(data, "team-building");
+
       reset();
     } catch (error: any) {
-      console.error('Registration error:', error);
-      console.error('Error details:', error?.message, error?.details, error?.hint);
-      toast.error(cmsConfig?.formConfig?.messages?.errorMessage || error?.message || "Failed to submit registration. Please try again.");
+      console.error("Registration error:", error);
+      console.error("Error details:", error?.message, error?.details, error?.hint);
+      toast.error(
+        cmsConfig?.formConfig?.messages?.errorMessage ||
+          error?.message ||
+          "Failed to submit registration. Please try again.",
+      );
     }
   };
 
@@ -269,11 +317,14 @@ const TeamBuildingProgram = () => {
             </div>
             <div>
               <h1 className="text-4xl md:text-5xl font-bold text-primary">{cmsConfig?.title || "Team Building"}</h1>
-              <p className="text-lg text-muted-foreground">{cmsConfig?.subtitle || "Strengthen Teams Through Adventure"}</p>
+              <p className="text-lg text-muted-foreground">
+                {cmsConfig?.subtitle || "Strengthen Teams Through Adventure"}
+              </p>
             </div>
           </div>
           <p className="text-xl text-muted-foreground leading-relaxed max-w-4xl">
-            {cmsConfig?.description || "We believe the best teams are built through shared experiences, challenges, and outdoor adventure. Our team-building programs are designed to help organizations, schools, and groups connect, collaborate, and perform better together—all while enjoying the great outdoors."}
+            {cmsConfig?.description ||
+              "We believe the best teams are built through shared experiences, challenges, and outdoor adventure. Our team-building programs are designed to help organizations, schools, and groups connect, collaborate, and perform better together—all while enjoying the great outdoors."}
           </p>
         </div>
 
@@ -301,25 +352,30 @@ const TeamBuildingProgram = () => {
                 <div className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-primary shrink-0 mt-1" />
                   <div>
-                    <strong>Adventure-Focused Learning:</strong> Engaging activities like orienteering, archery, obstacle courses, mountain biking, and bushcraft build problem-solving, communication, and leadership skills.
+                    <strong>Adventure-Focused Learning:</strong> Engaging activities like orienteering, archery,
+                    obstacle courses, mountain biking, and bushcraft build problem-solving, communication, and
+                    leadership skills.
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-primary shrink-0 mt-1" />
                   <div>
-                    <strong>Tailored Programs:</strong> Each session is customized to your team's size, objectives, and skill levels, ensuring maximum impact.
+                    <strong>Tailored Programs:</strong> Each session is customized to your team's size, objectives, and
+                    skill levels, ensuring maximum impact.
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-primary shrink-0 mt-1" />
                   <div>
-                    <strong>Safe & Professional:</strong> All activities are guided by trained facilitators with a focus on safety, inclusivity, and structured fun.
+                    <strong>Safe & Professional:</strong> All activities are guided by trained facilitators with a focus
+                    on safety, inclusivity, and structured fun.
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-primary shrink-0 mt-1" />
                   <div>
-                    <strong>Measurable Outcomes:</strong> Our programs are designed to improve teamwork, morale, resilience, and strategic thinking.
+                    <strong>Measurable Outcomes:</strong> Our programs are designed to improve teamwork, morale,
+                    resilience, and strategic thinking.
                   </div>
                 </div>
               </div>
@@ -331,27 +387,39 @@ const TeamBuildingProgram = () => {
                 <Target className="w-5 h-5 text-primary" />
                 Translating Adventure into Workplace Success
               </h3>
-              <p className="text-muted-foreground mb-4">Our approach ensures that the skills your team develops outdoors carry over to the team environment:</p>
+              <p className="text-muted-foreground mb-4">
+                Our approach ensures that the skills your team develops outdoors carry over to the team environment:
+              </p>
               <div className="grid grid-cols-1 gap-3">
                 <div className="bg-background rounded-lg p-3">
                   <strong className="text-primary">Communication:</strong>
-                  <p className="text-sm text-muted-foreground">Participants practice listening, clear messaging, and feedback in real-time challenges.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Participants practice listening, clear messaging, and feedback in real-time challenges.
+                  </p>
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <strong className="text-primary">Collaboration:</strong>
-                  <p className="text-sm text-muted-foreground">Team tasks reinforce trust, cooperation, and shared responsibility.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Team tasks reinforce trust, cooperation, and shared responsibility.
+                  </p>
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <strong className="text-primary">Leadership:</strong>
-                  <p className="text-sm text-muted-foreground">Adventure scenarios allow natural leaders to emerge and inspire their peers.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Adventure scenarios allow natural leaders to emerge and inspire their peers.
+                  </p>
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <strong className="text-primary">Problem-Solving:</strong>
-                  <p className="text-sm text-muted-foreground">Teams develop strategies, adapt to change, and think creatively under pressure.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Teams develop strategies, adapt to change, and think creatively under pressure.
+                  </p>
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <strong className="text-primary">Resilience & Morale:</strong>
-                  <p className="text-sm text-muted-foreground">Overcoming outdoor challenges fosters confidence, motivation, and a positive team culture.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Overcoming outdoor challenges fosters confidence, motivation, and a positive team culture.
+                  </p>
                 </div>
               </div>
             </Card>
@@ -362,15 +430,13 @@ const TeamBuildingProgram = () => {
               <p className="text-muted-foreground mb-4">Click on any activity to learn more:</p>
               <div className="grid grid-cols-2 gap-3">
                 {teamBuildingActivities.map((activity) => (
-                  <Card 
-                    key={activity.id} 
+                  <Card
+                    key={activity.id}
                     className="p-4 cursor-pointer hover:shadow-lg transition-all hover:border-primary/50"
                     onClick={() => setSelectedActivity(activity)}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="bg-primary/10 rounded-full p-2 text-primary">
-                        {activity.icon}
-                      </div>
+                      <div className="bg-primary/10 rounded-full p-2 text-primary">{activity.icon}</div>
                       <h4 className="font-semibold text-sm">{activity.title}</h4>
                     </div>
                     <p className="text-xs text-muted-foreground">{activity.shortDescription}</p>
@@ -383,12 +449,10 @@ const TeamBuildingProgram = () => {
             <div>
               <h2 className="text-xl font-bold text-primary mb-4">Who We Work With</h2>
               <div className="space-y-3">
-                {audienceTypes.map(audience => (
+                {audienceTypes.map((audience) => (
                   <Card key={audience.id} className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="bg-primary/10 rounded-full p-2 text-primary">
-                        {audience.icon}
-                      </div>
+                      <div className="bg-primary/10 rounded-full p-2 text-primary">{audience.icon}</div>
                       <div>
                         <h4 className="font-semibold">{audience.title}</h4>
                         <p className="text-sm text-muted-foreground">{audience.description}</p>
@@ -402,14 +466,17 @@ const TeamBuildingProgram = () => {
 
           {/* Right Column - Registration Form */}
           <Card className="p-8 sticky top-8">
-            <h3 className="text-2xl font-bold text-primary mb-6">{cmsConfig?.formConfig?.formTitle || "Book Your Team-Building Experience"}</h3>
+            <h3 className="text-2xl font-bold text-primary mb-6">
+              {cmsConfig?.formConfig?.formTitle || "Book Your Team-Building Experience"}
+            </h3>
 
             <SignUpBenefitsDialog open={showBenefitsDialog} onOpenChange={setShowBenefitsDialog} />
 
             {!isSignedIn && !authLoading && (
               <div className="mb-6 p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">Sign in with Google</span> to auto-fill your details and save time
+                  <span className="font-medium text-foreground">Sign in with Google</span> to auto-fill your details and
+                  save time
                 </p>
                 <GoogleSignInButton />
               </div>
@@ -417,10 +484,14 @@ const TeamBuildingProgram = () => {
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div>
-                <Label className="text-base font-medium">{cmsConfig?.formConfig?.fields?.occasion?.label || "Occasion"} *</Label>
-                <Select onValueChange={value => setValue("occasion", value as any)}>
+                <Label className="text-base font-medium">
+                  {cmsConfig?.formConfig?.fields?.occasion?.label || "Occasion"} *
+                </Label>
+                <Select onValueChange={(value) => setValue("occasion", value as any)}>
                   <SelectTrigger className="mt-2">
-                    <SelectValue placeholder={cmsConfig?.formConfig?.fields?.occasion?.placeholder || "Select occasion"} />
+                    <SelectValue
+                      placeholder={cmsConfig?.formConfig?.fields?.occasion?.placeholder || "Select occasion"}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="birthday">Birthday</SelectItem>
@@ -435,21 +506,37 @@ const TeamBuildingProgram = () => {
                   <Label htmlFor="adultsNumber" className="text-base font-medium">
                     Adults *
                   </Label>
-                  <Input id="adultsNumber" {...register("adultsNumber")} type="number" className="mt-2" placeholder="Number of adults" />
-                  {errors.adultsNumber && <p className="text-destructive text-sm mt-1">{errors.adultsNumber.message}</p>}
+                  <Input
+                    id="adultsNumber"
+                    {...register("adultsNumber")}
+                    type="number"
+                    className="mt-2"
+                    placeholder="Number of adults"
+                  />
+                  {errors.adultsNumber && (
+                    <p className="text-destructive text-sm mt-1">{errors.adultsNumber.message}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="childrenNumber" className="text-base font-medium">
                     Children *
                   </Label>
-                  <Input id="childrenNumber" {...register("childrenNumber")} type="number" className="mt-2" placeholder="Number of children" />
-                  {errors.childrenNumber && <p className="text-destructive text-sm mt-1">{errors.childrenNumber.message}</p>}
+                  <Input
+                    id="childrenNumber"
+                    {...register("childrenNumber")}
+                    type="number"
+                    className="mt-2"
+                    placeholder="Number of children"
+                  />
+                  {errors.childrenNumber && (
+                    <p className="text-destructive text-sm mt-1">{errors.childrenNumber.message}</p>
+                  )}
                 </div>
               </div>
 
               <div>
                 <Label className="text-base font-medium">Age Range *</Label>
-                <Select onValueChange={value => setValue("ageRange", value as any)}>
+                <Select onValueChange={(value) => setValue("ageRange", value as any)}>
                   <SelectTrigger className="mt-2">
                     <SelectValue placeholder="Select age range" />
                   </SelectTrigger>
@@ -467,7 +554,7 @@ const TeamBuildingProgram = () => {
 
               <div>
                 <Label className="text-base font-medium">Package *</Label>
-                <Select onValueChange={value => setValue("package", value as any)}>
+                <Select onValueChange={(value) => setValue("package", value as any)}>
                   <SelectTrigger className="mt-2">
                     <SelectValue placeholder="Select a package" />
                   </SelectTrigger>
@@ -480,20 +567,24 @@ const TeamBuildingProgram = () => {
                 </Select>
               </div>
 
-              <Controller name="eventDate" control={control} render={({ field }) => (
-                <DatePickerField 
-                  label="Event Date" 
-                  placeholder="Select event date" 
-                  value={field.value} 
-                  onChange={field.onChange} 
-                  error={errors.eventDate?.message} 
-                  required 
-                />
-              )} />
+              <Controller
+                name="eventDate"
+                control={control}
+                render={({ field }) => (
+                  <DatePickerField
+                    label="Event Date"
+                    placeholder="Select event date"
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.eventDate?.message}
+                    required
+                  />
+                )}
+              />
 
               <div>
                 <Label className="text-base font-medium">Location *</Label>
-                <Select onValueChange={value => setValue("location", value as any)}>
+                <Select onValueChange={(value) => setValue("location", value as any)}>
                   <SelectTrigger className="mt-2">
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
@@ -524,16 +615,16 @@ const TeamBuildingProgram = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="email" className="text-base font-medium">
-                    Email *{autoFilledFields.has('email') && <AutoFilledBadge />}
+                    Email *{autoFilledFields.has("email") && <AutoFilledBadge />}
                   </Label>
                   <Input id="email" type="email" {...register("email")} className="mt-2" placeholder="your@email.com" />
                   {errors.email && <p className="text-destructive text-sm mt-1">{errors.email.message}</p>}
                 </div>
                 <div>
                   <Label htmlFor="phone" className="text-base font-medium">
-                    Phone *{autoFilledFields.has('phone') && <AutoFilledBadge />}
+                    Phone *{autoFilledFields.has("phone") && <AutoFilledBadge />}
                   </Label>
-                  <Input id="phone" {...register("phone")} className="mt-2" placeholder="+254 700 000 000" />
+                  <Input id="phone" {...register("phone")} className="mt-2" placeholder="+254 114 705763" />
                   {errors.phone && <p className="text-destructive text-sm mt-1">{errors.phone.message}</p>}
                 </div>
               </div>
@@ -553,9 +644,13 @@ const TeamBuildingProgram = () => {
               />
 
               <div className="flex items-start space-x-3 pt-4">
-                <Controller name="consent" control={control} render={({ field }) => (
-                  <Checkbox id="consent" checked={field.value} onCheckedChange={field.onChange} />
-                )} />
+                <Controller
+                  name="consent"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox id="consent" checked={field.value} onCheckedChange={field.onChange} />
+                  )}
+                />
                 <Label htmlFor="consent" className="text-sm leading-relaxed">
                   I agree to the terms and conditions and consent to participate in the team-building activities. *
                 </Label>
@@ -567,7 +662,9 @@ const TeamBuildingProgram = () => {
               </div>
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? (cmsConfig?.formConfig?.messages?.loadingMessage || "Submitting...") : (cmsConfig?.formConfig?.ctaText || "Book Experience")}
+                {isSubmitting
+                  ? cmsConfig?.formConfig?.messages?.loadingMessage || "Submitting..."
+                  : cmsConfig?.formConfig?.ctaText || "Book Experience"}
               </Button>
             </form>
           </Card>
@@ -579,9 +676,7 @@ const TeamBuildingProgram = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
-              <div className="bg-primary/10 rounded-full p-3 text-primary">
-                {selectedActivity?.icon}
-              </div>
+              <div className="bg-primary/10 rounded-full p-3 text-primary">{selectedActivity?.icon}</div>
               <DialogTitle className="text-2xl">{selectedActivity?.title}</DialogTitle>
             </div>
             <DialogDescription className="text-base text-foreground">

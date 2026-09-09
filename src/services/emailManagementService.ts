@@ -452,12 +452,18 @@ class EmailManagementService {
     from_name?: string;
     segment_id: string;
     recipient_count: number;
+    // Optional scheduling fields
+    scheduled_for?: string | null;
+    send_window_start_hour?: number | null;
+    send_window_end_hour?: number | null;
+    recipients_snapshot?: string[] | null;
   }): Promise<any | null> {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       const supabaseClient = supabase as any;
+      const isScheduled = !!payload.scheduled_for;
       const { data, error } = await supabaseClient
         .from("campaigns")
         .insert({
@@ -468,8 +474,13 @@ class EmailManagementService {
           segment_id: payload.segment_id,
           recipient_count: payload.recipient_count,
           campaign_type: "email",
-          status: "planning",
+          status: isScheduled ? "scheduled" : "planning",
           created_by: user?.id,
+          scheduled_for: payload.scheduled_for || null,
+          send_window_start_hour: payload.send_window_start_hour ?? null,
+          send_window_end_hour: payload.send_window_end_hour ?? null,
+          recipients_snapshot: isScheduled ? payload.recipients_snapshot || null : null,
+          scheduled_by: isScheduled ? user?.id : null,
         })
         .select()
         .single();
@@ -478,6 +489,21 @@ class EmailManagementService {
     } catch (e) {
       console.error("Error creating campaign:", e);
       return null;
+    }
+  }
+
+  async cancelScheduledCampaign(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const supabaseClient = supabase as any;
+      const { error } = await supabaseClient
+        .from("campaigns")
+        .update({ status: "cancelled" })
+        .eq("id", id)
+        .eq("status", "scheduled");
+      if (error) throw error;
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e?.message || "Cancel failed" };
     }
   }
 
@@ -647,6 +673,97 @@ class EmailManagementService {
       return { sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0 };
     }
   }
+
+  // ---------- Email Templates (reusable layouts) ----------
+
+  async getEmailTemplates(includeArchived = false): Promise<EmailTemplate[]> {
+    try {
+      const supabaseClient = supabase as any;
+      let query = supabaseClient
+        .from("email_templates")
+        .select("*")
+        .order("updated_at", { ascending: false });
+      if (!includeArchived) query = query.eq("is_archived", false);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as EmailTemplate[];
+    } catch (e) {
+      console.error("Error fetching email templates:", e);
+      return [];
+    }
+  }
+
+  async saveEmailTemplate(payload: {
+    id?: string;
+    name: string;
+    description?: string | null;
+    category?: string | null;
+    subject: string;
+    body_html: string;
+    from_name?: string | null;
+  }): Promise<{ success: boolean; template?: EmailTemplate; error?: string }> {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const supabaseClient = supabase as any;
+      const row: any = {
+        name: payload.name.trim(),
+        description: payload.description ?? null,
+        category: payload.category || "general",
+        subject: payload.subject,
+        body_html: payload.body_html,
+        from_name: payload.from_name || "Amuse Kenya",
+        updated_by: user?.id ?? null,
+      };
+      let data: any, error: any;
+      if (payload.id) {
+        ({ data, error } = await supabaseClient
+          .from("email_templates")
+          .update(row)
+          .eq("id", payload.id)
+          .select()
+          .single());
+      } else {
+        row.created_by = user?.id ?? null;
+        ({ data, error } = await supabaseClient
+          .from("email_templates")
+          .insert(row)
+          .select()
+          .single());
+      }
+      if (error) throw error;
+      return { success: true, template: data as EmailTemplate };
+    } catch (e: any) {
+      return { success: false, error: e?.message || "Save failed" };
+    }
+  }
+
+  async deleteEmailTemplate(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const supabaseClient = supabase as any;
+      const { error } = await supabaseClient.from("email_templates").delete().eq("id", id);
+      if (error) throw error;
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e?.message || "Delete failed" };
+    }
+  }
+}
+
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  subject: string;
+  body_html: string;
+  from_name: string | null;
+  is_archived: boolean;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export const emailManagementService = new EmailManagementService();

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { useClientAuth } from '@/hooks/useClientAuth';
-import SignUpBenefitsDialog from '@/components/SignUpBenefitsDialog';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
-import AutoFilledBadge from '@/components/ui/AutoFilledBadge';
+import { useClientAuth } from "@/hooks/useClientAuth";
+import SignUpBenefitsDialog from "@/components/SignUpBenefitsDialog";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
+import AutoFilledBadge from "@/components/ui/AutoFilledBadge";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,7 +21,7 @@ import schoolsImage from "@/assets/schools.jpg";
 import DatePickerField from "./DatePickerField";
 import { ConsentDialog } from "./ConsentDialog";
 import { RefundPolicyDialog } from "./RefundPolicyDialog";
-import { ParticipationConsentDialog } from './ParticipationConsentDialog';
+import { ParticipationConsentDialog } from "./ParticipationConsentDialog";
 import { leadsService } from "@/services/leadsService";
 import { useHomeschoolingPageConfig } from "@/hooks/useHomeschoolingPageConfig";
 import DynamicMedia from "@/components/content/DynamicMedia";
@@ -45,7 +45,9 @@ const homeschoolingSchema = z.object({
   email: z.string().email("Invalid email address"),
   phone: z.string().min(1, "Phone number is required").max(20),
   consent: z.boolean().default(false),
-  participationConsent: z.literal(true, { errorMap: () => ({ message: 'You must read and accept the participation form' }) }),
+  participationConsent: z.literal(true, {
+    errorMap: () => ({ message: "You must read and accept the participation form" }),
+  }),
 });
 
 type HomeschoolingFormData = z.infer<typeof homeschoolingSchema>;
@@ -84,14 +86,14 @@ const HomeschoolingProgram = () => {
     const handleCMSUpdate = () => {
       refresh?.();
     };
-    
-    window.addEventListener('cms-content-updated', handleCMSUpdate);
-    return () => window.removeEventListener('cms-content-updated', handleCMSUpdate);
+
+    window.addEventListener("cms-content-updated", handleCMSUpdate);
+    return () => window.removeEventListener("cms-content-updated", handleCMSUpdate);
   }, [refresh]);
 
   // Convert CMS packages to display format
-  const packages = config?.packages?.length 
-    ? config.packages.map(pkg => ({
+  const packages = config?.packages?.length
+    ? config.packages.map((pkg) => ({
         id: pkg.id,
         title: pkg.name,
         itinerary: pkg.description,
@@ -129,8 +131,11 @@ const HomeschoolingProgram = () => {
   // Benefits dialog for non-signed-in users
   useEffect(() => {
     if (authLoading) return;
-    if (isSignedIn) { setShowBenefitsDialog(false); return; }
-    if (!sessionStorage.getItem('benefits_dialog_dismissed')) {
+    if (isSignedIn) {
+      setShowBenefitsDialog(false);
+      return;
+    }
+    if (!sessionStorage.getItem("benefits_dialog_dismissed")) {
       const timer = setTimeout(() => setShowBenefitsDialog(true), 4000);
       return () => clearTimeout(timer);
     }
@@ -140,21 +145,30 @@ const HomeschoolingProgram = () => {
   useEffect(() => {
     if (clientProfile && isSignedIn) {
       const filled = new Set<string>();
-      if (clientProfile.full_name) { setValue('parentName', clientProfile.full_name); filled.add('parentName'); }
-      if (clientProfile.email) { setValue('email', clientProfile.email); filled.add('email'); }
-      if (clientProfile.phone) { setValue('phone', clientProfile.phone); filled.add('phone'); }
+      if (clientProfile.full_name) {
+        setValue("parentName", clientProfile.full_name);
+        filled.add("parentName");
+      }
+      if (clientProfile.email) {
+        setValue("email", clientProfile.email);
+        filled.add("email");
+      }
+      if (clientProfile.phone) {
+        setValue("phone", clientProfile.phone);
+        filled.add("phone");
+      }
       setAutoFilledFields(filled);
     }
   }, [clientProfile, isSignedIn, setValue]);
 
   const onSubmit = async (data: HomeschoolingFormData) => {
     // Security checks: prevent duplicates and rate limiting
-    const securityCheck = await performSecurityChecks(data, 'homeschooling');
+    const securityCheck = await performSecurityChecks(data, "homeschooling");
     if (!securityCheck.allowed) {
-      toast.error(securityCheck.message || 'Submission blocked. Please try again later.');
+      toast.error(securityCheck.message || "Submission blocked. Please try again later.");
       return;
     }
-    
+
     try {
       // Save to database
       const { homeschoolingService } = await import("@/services/programRegistrationService");
@@ -190,16 +204,23 @@ const HomeschoolingProgram = () => {
       if (emailError) {
         throw emailError;
       }
-      toast.success(config?.formConfig?.messages?.successMessage || "Registration submitted successfully! Check your email for confirmation.");
-      
+      toast.success(
+        config?.formConfig?.messages?.successMessage ||
+          "Registration submitted successfully! Check your email for confirmation.",
+      );
+
       // Record successful submission for duplicate prevention
-      await recordSubmission(data, 'homeschooling');
-      
+      await recordSubmission(data, "homeschooling");
+
       reset();
     } catch (error: any) {
       console.error("Registration error:", error);
       console.error("Error details:", error?.message, error?.details, error?.hint);
-      toast.error(config?.formConfig?.messages?.errorMessage || error?.message || "Failed to submit registration. Please try again.");
+      toast.error(
+        config?.formConfig?.messages?.errorMessage ||
+          error?.message ||
+          "Failed to submit registration. Please try again.",
+      );
     }
   };
 
@@ -241,13 +262,12 @@ const HomeschoolingProgram = () => {
                   <h1 className="text-4xl md:text-5xl font-bold text-primary">
                     {config?.title || "Homeschooling Outdoor Experiences"}
                   </h1>
-                  <p className="text-lg text-muted-foreground">
-                    {config?.subtitle || "(All Ages)"}
-                  </p>
+                  <p className="text-lg text-muted-foreground">{config?.subtitle || "(All Ages)"}</p>
                 </div>
               </div>
               <p className="text-xl text-muted-foreground leading-relaxed">
-                {config?.description || "Flexible, experiential learning beyond textbooks. Structured outdoor education that complements homeschooling curricula while fostering social interaction and real-world skill development."}
+                {config?.description ||
+                  "Flexible, experiential learning beyond textbooks. Structured outdoor education that complements homeschooling curricula while fostering social interaction and real-world skill development."}
               </p>
             </div>
 
@@ -288,15 +308,17 @@ const HomeschoolingProgram = () => {
                 Available Activities
               </h4>
               <ul className="space-y-2 text-muted-foreground text-sm">
-                {(config?.activities || [
-                  "Horse Riding: Balance, coordination, empathy with animals",
-                  "Mountain Biking: Endurance, risk assessment, resilience",
-                  "Camping Experiences: Independence, teamwork, self-reliance",
-                  "Outdoor Leadership: Communication, decision-making",
-                  "Bushcraft & Survival: Shelter building, fire safety, nature awareness",
-                  "Archery: Focus, patience, discipline",
-                  "Orienteering: Map reading, compass use, navigation"
-                ]).map((activity, index) => (
+                {(
+                  config?.activities || [
+                    "Horse Riding: Balance, coordination, empathy with animals",
+                    "Mountain Biking: Endurance, risk assessment, resilience",
+                    "Camping Experiences: Independence, teamwork, self-reliance",
+                    "Outdoor Leadership: Communication, decision-making",
+                    "Bushcraft & Survival: Shelter building, fire safety, nature awareness",
+                    "Archery: Focus, patience, discipline",
+                    "Orienteering: Map reading, compass use, navigation",
+                  ]
+                ).map((activity, index) => (
                   <li key={index}>• {activity}</li>
                 ))}
               </ul>
@@ -330,7 +352,8 @@ const HomeschoolingProgram = () => {
             {!isSignedIn && !authLoading && (
               <div className="mb-6 p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">Sign in with Google</span> to auto-fill your details and save time
+                  <span className="font-medium text-foreground">Sign in with Google</span> to auto-fill your details and
+                  save time
                 </p>
                 <GoogleSignInButton />
               </div>
@@ -339,7 +362,8 @@ const HomeschoolingProgram = () => {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div>
                 <Label htmlFor="parentName" className="text-base font-medium">
-                  {config?.formConfig?.fields?.parentName?.label || "Parent Name"} *{autoFilledFields.has('parentName') && <AutoFilledBadge />}
+                  {config?.formConfig?.fields?.parentName?.label || "Parent Name"} *
+                  {autoFilledFields.has("parentName") && <AutoFilledBadge />}
                 </Label>
                 <Input
                   id="parentName"
@@ -419,8 +443,10 @@ const HomeschoolingProgram = () => {
                     <SelectValue placeholder={config?.formConfig?.fields?.package?.placeholder || "Select a package"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {packages.map(pkg => (
-                      <SelectItem key={pkg.id} value={pkg.id}>{pkg.title}</SelectItem>
+                    {packages.map((pkg) => (
+                      <SelectItem key={pkg.id} value={pkg.id}>
+                        {pkg.title}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -478,26 +504,28 @@ const HomeschoolingProgram = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="email" className="text-base font-medium">
-                    {config?.formConfig?.fields?.email?.label || "Email"} *{autoFilledFields.has('email') && <AutoFilledBadge />}
+                    {config?.formConfig?.fields?.email?.label || "Email"} *
+                    {autoFilledFields.has("email") && <AutoFilledBadge />}
                   </Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    {...register("email")} 
-                    className="mt-2" 
-                    placeholder={config?.formConfig?.fields?.email?.placeholder || "your@email.com"} 
+                  <Input
+                    id="email"
+                    type="email"
+                    {...register("email")}
+                    className="mt-2"
+                    placeholder={config?.formConfig?.fields?.email?.placeholder || "your@email.com"}
                   />
                   {errors.email && <p className="text-destructive text-sm mt-1">{errors.email.message}</p>}
                 </div>
                 <div>
                   <Label htmlFor="phone" className="text-base font-medium">
-                    {config?.formConfig?.fields?.phone?.label || "Phone Number"} *{autoFilledFields.has('phone') && <AutoFilledBadge />}
+                    {config?.formConfig?.fields?.phone?.label || "Phone Number"} *
+                    {autoFilledFields.has("phone") && <AutoFilledBadge />}
                   </Label>
-                  <Input 
-                    id="phone" 
-                    {...register("phone")} 
-                    className="mt-2" 
-                    placeholder={config?.formConfig?.fields?.phone?.placeholder || "+254 700 000 000"} 
+                  <Input
+                    id="phone"
+                    {...register("phone")}
+                    className="mt-2"
+                    placeholder={config?.formConfig?.fields?.phone?.placeholder || "+254 114 705763"}
                   />
                   {errors.phone && <p className="text-destructive text-sm mt-1">{errors.phone.message}</p>}
                 </div>
@@ -526,10 +554,9 @@ const HomeschoolingProgram = () => {
               <RefundPolicyDialog />
 
               <Button type="submit" className="w-full h-12 text-base" disabled={isSubmitting}>
-                {isSubmitting 
-                  ? (config?.formConfig?.messages?.loadingMessage || "Submitting...") 
-                  : (config?.formConfig?.buttons?.submit || "Submit Registration")
-                }
+                {isSubmitting
+                  ? config?.formConfig?.messages?.loadingMessage || "Submitting..."
+                  : config?.formConfig?.buttons?.submit || "Submit Registration"}
               </Button>
             </form>
           </Card>

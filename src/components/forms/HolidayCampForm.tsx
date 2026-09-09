@@ -49,6 +49,8 @@ const holidayCampSchema = z.object({
   children: z.array(childSchema).min(1, 'At least one child is required'),
   campType: z.string().min(1, 'Camp type is required'),
   emergencyContact: z.string().min(1, 'Emergency contact is required').max(100),
+  altEmergencyContactName: z.string().trim().max(100).optional(),
+  altEmergencyContact: z.string().trim().max(100).optional(),
   email: z.string().email('Invalid email address'),
   phone: z.string().min(1, 'Phone number is required').max(20),
   consent: z.boolean().default(false),
@@ -309,7 +311,12 @@ const HolidayCampForm = ({ campType, campTitle }: HolidayCampFormProps) => {
         parent_name: data.parentName,
         email: data.email,
         phone: data.phone,
-        emergency_contact: data.emergencyContact,
+        emergency_contact: [
+          data.emergencyContact,
+          data.altEmergencyContact
+            ? `Alternate: ${data.altEmergencyContactName || 'Not specified'} - ${data.altEmergencyContact}`
+            : null,
+        ].filter(Boolean).join(' | '),
         location: selectedLocation,
         children: data.children.map(child => ({
           childName: child.childName,
@@ -330,6 +337,8 @@ const HolidayCampForm = ({ campType, campTitle }: HolidayCampFormProps) => {
         registration_type: 'online_only' as const,
         qr_code_data: qrCodeData,
         consent_given: data.consent,
+        participation_consent_given: data.participationConsent === true,
+        participation_consent_at: data.participationConsent === true ? new Date().toISOString() : null,
         status: 'active' as const,
       };
 
@@ -380,6 +389,39 @@ const HolidayCampForm = ({ campType, campTitle }: HolidayCampFormProps) => {
       
       const { supabase } = await import('@/integrations/supabase/client');
 
+      // Confirmation email must reflect the REAL payment outcome, never the button clicked.
+      const sendConfirmationEmail = (payment: {
+        paymentStatus: 'unpaid' | 'partial' | 'paid';
+        amountPaid?: number;
+        paymentReference?: string;
+      }) => {
+        console.log('📧 Sending confirmation email (background)...', payment);
+        supabase.functions.invoke('send-confirmation-email', {
+          body: {
+            email: data.email,
+            programType: campType,
+            registrationDetails: {
+              parentName: data.parentName,
+              campTitle: campTitle,
+              children: data.children,
+              campType: campType,
+              registrationId: registration.id,
+              location: selectedLocation,
+              emailContent: (config as any).emailContent
+            },
+            invoiceDetails: {
+              totalAmount: totalAmount,
+              paymentMethod: payment.paymentStatus === 'unpaid' ? 'cash' : 'online',
+              paymentStatus: payment.paymentStatus,
+              amountPaid: payment.amountPaid ?? 0,
+              paymentReference: payment.paymentReference,
+            }
+          }
+        }).then(({ error }) => {
+          if (error) console.error('❌ Email sending failed (non-blocking):', error);
+        }).catch((e) => console.error('❌ Email invoke error (non-blocking):', e));
+      };
+
       // For "Pay Now" flow: open Paystack FIRST so it isn't blocked by email failures
       // or hidden behind the QR success modal.
       if (buttonType === 'pay') {
@@ -398,6 +440,8 @@ const HolidayCampForm = ({ campType, campTitle }: HolidayCampFormProps) => {
               programName: campTitle,
             },
             onSuccess: async (ref) => {
+              let paymentStatus: 'unpaid' | 'partial' | 'paid' = 'unpaid';
+              let amountPaid = 0;
               try {
                 const { data: verifyData, error: verifyErr } = await supabase.functions.invoke(
                   'paystack-verify',
@@ -405,6 +449,8 @@ const HolidayCampForm = ({ campType, campTitle }: HolidayCampFormProps) => {
                 );
                 if (verifyErr) throw verifyErr;
                 if (!verifyData?.success) throw new Error(verifyData?.error || 'Verification failed');
+                paymentStatus = (verifyData.status as 'unpaid' | 'partial' | 'paid') || 'paid';
+                amountPaid = Number(verifyData.amountPaid) || 0;
                 toast.success('Payment received. Thank you!');
               } catch (e) {
                 console.error('Verify error:', e);
@@ -413,8 +459,9 @@ const HolidayCampForm = ({ campType, campTitle }: HolidayCampFormProps) => {
                 // Show success/QR modal AFTER payment attempt completes
                 setRegistrationResult(registration);
                 setQrCodeDataUrl(qrUrl);
-                setRegistrationType('online_paid');
+                setRegistrationType(paymentStatus === 'unpaid' ? 'online_only' : 'online_paid');
                 setShowQRModal(true);
+                sendConfirmationEmail({ paymentStatus, amountPaid, paymentReference: ref });
               }
             },
             onClose: () => {
@@ -424,6 +471,7 @@ const HolidayCampForm = ({ campType, campTitle }: HolidayCampFormProps) => {
               setQrCodeDataUrl(qrUrl);
               setRegistrationType('online_only');
               setShowQRModal(true);
+              sendConfirmationEmail({ paymentStatus: 'unpaid' });
             },
           });
         } catch (e) {
@@ -434,6 +482,7 @@ const HolidayCampForm = ({ campType, campTitle }: HolidayCampFormProps) => {
           setQrCodeDataUrl(qrUrl);
           setRegistrationType('online_only');
           setShowQRModal(true);
+          sendConfirmationEmail({ paymentStatus: 'unpaid' });
         }
       } else {
         // "Register only" flow: show confirmation immediately
@@ -441,31 +490,9 @@ const HolidayCampForm = ({ campType, campTitle }: HolidayCampFormProps) => {
         setQrCodeDataUrl(qrUrl);
         setRegistrationType('online_only');
         setShowQRModal(true);
+        sendConfirmationEmail({ paymentStatus: 'unpaid' });
       }
 
-      // Send confirmation email in background (non-blocking, never breaks payment)
-      console.log('📧 Sending confirmation email (background)...');
-      supabase.functions.invoke('send-confirmation-email', {
-        body: {
-          email: data.email,
-          programType: campType,
-          registrationDetails: {
-            parentName: data.parentName,
-            campTitle: campTitle,
-            children: data.children,
-            campType: campType,
-            registrationId: registration.id,
-            location: selectedLocation,
-            emailContent: (config as any).emailContent
-          },
-          invoiceDetails: {
-            totalAmount: totalAmount,
-            paymentMethod: buttonType === 'pay' ? 'online_payment' : 'cash'
-          }
-        }
-      }).then(({ error }) => {
-        if (error) console.error('❌ Email sending failed (non-blocking):', error);
-      }).catch((e) => console.error('❌ Email invoke error (non-blocking):', e));
 
       toast.success(config.messages.registrationSuccess);
       await recordSubmission(data, 'holiday-camp');
@@ -729,11 +756,45 @@ const HolidayCampForm = ({ campType, campTitle }: HolidayCampFormProps) => {
           )}
         </div>
 
-        <div>
-          <Label htmlFor="emergencyContact" className="text-base font-medium">{config.fields.emergencyContact.label} *</Label>
-          <Input id="emergencyContact" {...register('emergencyContact')} className="mt-2" placeholder={config.fields.emergencyContact.placeholder} />
-          {errors.emergencyContact && <p className="text-destructive text-sm mt-1">{errors.emergencyContact.message}</p>}
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="emergencyContact" className="text-base font-medium">{config.fields.emergencyContact.label} *</Label>
+            <Input id="emergencyContact" {...register('emergencyContact')} className="mt-2" placeholder={config.fields.emergencyContact.placeholder} />
+            {errors.emergencyContact && <p className="text-destructive text-sm mt-1">{errors.emergencyContact.message}</p>}
+          </div>
+
+          <div className="rounded-lg border border-border bg-muted/40 p-4">
+            <p className="text-sm text-muted-foreground">
+              Optional: add a second emergency contact in case we cannot reach the first one. On camp days we
+              call the contact provided to reach you quickly about your child's wellbeing, pick-up or any
+              medical need, so a back-up number (with the person's name and how they know your child) helps us
+              avoid delays.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+              <div>
+                <Label htmlFor="altEmergencyContactName" className="text-base font-medium">Alternate Contact Name</Label>
+                <Input
+                  id="altEmergencyContactName"
+                  {...register('altEmergencyContactName')}
+                  className="mt-2"
+                  placeholder="e.g. Jane Doe (Aunt)"
+                />
+                {errors.altEmergencyContactName && <p className="text-destructive text-sm mt-1">{errors.altEmergencyContactName.message}</p>}
+              </div>
+              <div>
+                <Label htmlFor="altEmergencyContact" className="text-base font-medium">Alternate Contact Number</Label>
+                <Input
+                  id="altEmergencyContact"
+                  {...register('altEmergencyContact')}
+                  className="mt-2"
+                  placeholder="e.g. 0722 000 000"
+                />
+                {errors.altEmergencyContact && <p className="text-destructive text-sm mt-1">{errors.altEmergencyContact.message}</p>}
+              </div>
+            </div>
+          </div>
         </div>
+
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

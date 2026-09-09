@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { useClientAuth } from '@/hooks/useClientAuth';
-import SignUpBenefitsDialog from '@/components/SignUpBenefitsDialog';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
-import AutoFilledBadge from '@/components/ui/AutoFilledBadge';
+import { useClientAuth } from "@/hooks/useClientAuth";
+import SignUpBenefitsDialog from "@/components/SignUpBenefitsDialog";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
+import AutoFilledBadge from "@/components/ui/AutoFilledBadge";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -20,7 +20,7 @@ import { Link } from "react-router-dom";
 import adventureImage from "@/assets/adventure.jpg";
 import { ConsentDialog } from "./ConsentDialog";
 import { RefundPolicyDialog } from "./RefundPolicyDialog";
-import { ParticipationConsentDialog } from './ParticipationConsentDialog';
+import { ParticipationConsentDialog } from "./ParticipationConsentDialog";
 import DatePickerField from "./DatePickerField";
 import { leadsService } from "@/services/leadsService";
 import { invoiceService } from "@/services/invoiceService";
@@ -46,7 +46,9 @@ const kenyanExperiencesSchema = z.object({
   email: z.string().email("Invalid email address"),
   phone: z.string().min(1, "Phone number is required").max(20),
   consent: z.boolean().default(false),
-  participationConsent: z.literal(true, { errorMap: () => ({ message: 'You must read and accept the participation form' }) }),
+  participationConsent: z.literal(true, {
+    errorMap: () => ({ message: "You must read and accept the participation form" }),
+  }),
 });
 
 type KenyanExperiencesFormData = z.infer<typeof kenyanExperiencesSchema>;
@@ -116,20 +118,18 @@ const KenyanExperiencesProgram = () => {
     const handleCMSUpdate = () => {
       refresh?.();
     };
-    
-    window.addEventListener('cms-content-updated', handleCMSUpdate);
-    return () => window.removeEventListener('cms-content-updated', handleCMSUpdate);
+
+    window.addEventListener("cms-content-updated", handleCMSUpdate);
+    return () => window.removeEventListener("cms-content-updated", handleCMSUpdate);
   }, [refresh]);
 
   // Convert CMS experiences to circuit format
   const circuits = config?.experiences?.length
-    ? config.experiences.map(exp => ({
+    ? config.experiences.map((exp) => ({
         id: exp.id,
         title: exp.title,
         description: exp.description,
-        ageGroups: [
-          { range: exp.ageGroup || "All ages", focus: exp.duration || "" }
-        ],
+        ageGroups: [{ range: exp.ageGroup || "All ages", focus: exp.duration || "" }],
         features: exp.highlights || [],
       }))
     : defaultCircuits;
@@ -175,8 +175,11 @@ const KenyanExperiencesProgram = () => {
   // Benefits dialog for non-signed-in users
   useEffect(() => {
     if (authLoading) return;
-    if (isSignedIn) { setShowBenefitsDialog(false); return; }
-    if (!sessionStorage.getItem('benefits_dialog_dismissed')) {
+    if (isSignedIn) {
+      setShowBenefitsDialog(false);
+      return;
+    }
+    if (!sessionStorage.getItem("benefits_dialog_dismissed")) {
       const timer = setTimeout(() => setShowBenefitsDialog(true), 4000);
       return () => clearTimeout(timer);
     }
@@ -186,9 +189,18 @@ const KenyanExperiencesProgram = () => {
   useEffect(() => {
     if (clientProfile && isSignedIn) {
       const filled = new Set<string>();
-      if (clientProfile.full_name) { setValue('parentLeader', clientProfile.full_name); filled.add('parentLeader'); }
-      if (clientProfile.email) { setValue('email', clientProfile.email); filled.add('email'); }
-      if (clientProfile.phone) { setValue('phone', clientProfile.phone); filled.add('phone'); }
+      if (clientProfile.full_name) {
+        setValue("parentLeader", clientProfile.full_name);
+        filled.add("parentLeader");
+      }
+      if (clientProfile.email) {
+        setValue("email", clientProfile.email);
+        filled.add("email");
+      }
+      if (clientProfile.phone) {
+        setValue("phone", clientProfile.phone);
+        filled.add("phone");
+      }
       setAutoFilledFields(filled);
     }
   }, [clientProfile, isSignedIn, setValue]);
@@ -259,12 +271,19 @@ const KenyanExperiencesProgram = () => {
       if (emailError) {
         throw emailError;
       }
-      toast.success(config?.formConfig?.messages?.successMessage || "Registration submitted successfully! Check your email for confirmation.");
+      toast.success(
+        config?.formConfig?.messages?.successMessage ||
+          "Registration submitted successfully! Check your email for confirmation.",
+      );
       reset();
     } catch (error: any) {
       console.error("Registration error:", error);
       console.error("Error details:", error?.message, error?.details, error?.hint);
-      toast.error(config?.formConfig?.messages?.errorMessage || error?.message || "Failed to submit registration. Please try again.");
+      toast.error(
+        config?.formConfig?.messages?.errorMessage ||
+          error?.message ||
+          "Failed to submit registration. Please try again.",
+      );
     }
   };
 
@@ -294,19 +313,18 @@ const KenyanExperiencesProgram = () => {
                   <h1 className="text-4xl md:text-5xl font-bold text-primary">
                     {config?.title || "Kenyan Experiences"}
                   </h1>
-                  <p className="text-lg text-muted-foreground">
-                    {config?.subtitle || "(5-Night, 6-Day Programs)"}
-                  </p>
+                  <p className="text-lg text-muted-foreground">{config?.subtitle || "(5-Night, 6-Day Programs)"}</p>
                 </div>
               </div>
               <p className="text-xl text-muted-foreground leading-relaxed">
-                {config?.description || "Exploring Kenya, one region at a time. Sleep-away adventures for teens and preteens that shape confidence, character, and curiosity through real-world learning. From roaring rivers and mountain trails to cultural heartlands, campers tackle challenges, work as teams, and engage in community projects—raising a generation that thinks boldly and leads responsibly."}
+                {config?.description ||
+                  "Exploring Kenya, one region at a time. Sleep-away adventures for teens and preteens that shape confidence, character, and curiosity through real-world learning. From roaring rivers and mountain trails to cultural heartlands, campers tackle challenges, work as teams, and engage in community projects—raising a generation that thinks boldly and leads responsibly."}
               </p>
             </div>
 
             <div className="relative h-80 rounded-2xl overflow-hidden">
               <DynamicMedia
-                mediaType={config?.mediaType || 'photo'}
+                mediaType={config?.mediaType || "photo"}
                 mediaUrl={config?.featuredMediaUrl || adventureImage}
                 fallbackImage={adventureImage}
                 thumbnailUrl={config?.videoThumbnail}
@@ -384,7 +402,8 @@ const KenyanExperiencesProgram = () => {
             {!isSignedIn && !authLoading && (
               <div className="mb-6 p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">Sign in with Google</span> to auto-fill your details and save time
+                  <span className="font-medium text-foreground">Sign in with Google</span> to auto-fill your details and
+                  save time
                 </p>
                 <GoogleSignInButton />
               </div>
@@ -393,7 +412,8 @@ const KenyanExperiencesProgram = () => {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div>
                 <Label htmlFor="parentLeader" className="text-base font-medium">
-                  {config?.formConfig?.fields?.leaderName?.label || "Parent/Leader Name"} *{autoFilledFields.has('parentLeader') && <AutoFilledBadge />}
+                  {config?.formConfig?.fields?.leaderName?.label || "Parent/Leader Name"} *
+                  {autoFilledFields.has("parentLeader") && <AutoFilledBadge />}
                 </Label>
                 <Input
                   id="parentLeader"
@@ -484,7 +504,9 @@ const KenyanExperiencesProgram = () => {
                 </Label>
                 <Select onValueChange={(value) => setValue("circuit", value as any)}>
                   <SelectTrigger className="mt-2">
-                    <SelectValue placeholder={config?.formConfig?.fields?.experience?.placeholder || "Select a circuit"} />
+                    <SelectValue
+                      placeholder={config?.formConfig?.fields?.experience?.placeholder || "Select a circuit"}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="mt-kenya">Mt Kenya</SelectItem>
@@ -522,7 +544,9 @@ const KenyanExperiencesProgram = () => {
                           render={({ field }) => (
                             <DatePickerField
                               label=""
-                              placeholder={config?.formConfig?.fields?.preferredDates?.placeholder || "Select preferred date"}
+                              placeholder={
+                                config?.formConfig?.fields?.preferredDates?.placeholder || "Select preferred date"
+                              }
                               value={field.value}
                               onChange={field.onChange}
                               error={errors.preferredDates?.[index]?.date?.message}
@@ -567,7 +591,10 @@ const KenyanExperiencesProgram = () => {
                   id="specialMedicalNeeds"
                   {...register("specialMedicalNeeds")}
                   className="mt-2"
-                  placeholder={config?.formConfig?.fields?.specialRequirements?.placeholder || "Any medical conditions, allergies, or special requirements"}
+                  placeholder={
+                    config?.formConfig?.fields?.specialRequirements?.placeholder ||
+                    "Any medical conditions, allergies, or special requirements"
+                  }
                   rows={3}
                 />
               </div>
@@ -575,7 +602,8 @@ const KenyanExperiencesProgram = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="email" className="text-base font-medium">
-                    {config?.formConfig?.fields?.email?.label || "Email Address"} *{autoFilledFields.has('email') && <AutoFilledBadge />}
+                    {config?.formConfig?.fields?.email?.label || "Email Address"} *
+                    {autoFilledFields.has("email") && <AutoFilledBadge />}
                   </Label>
                   <Input
                     id="email"
@@ -588,13 +616,14 @@ const KenyanExperiencesProgram = () => {
                 </div>
                 <div>
                   <Label htmlFor="phone" className="text-base font-medium">
-                    {config?.formConfig?.fields?.phone?.label || "Phone Number"} *{autoFilledFields.has('phone') && <AutoFilledBadge />}
+                    {config?.formConfig?.fields?.phone?.label || "Phone Number"} *
+                    {autoFilledFields.has("phone") && <AutoFilledBadge />}
                   </Label>
                   <Input
                     id="phone"
                     {...register("phone")}
                     className="mt-2"
-                    placeholder={config?.formConfig?.fields?.phone?.placeholder || "+254 700 000 000"}
+                    placeholder={config?.formConfig?.fields?.phone?.placeholder || "+254 114 705763"}
                   />
                   {errors.phone && <p className="text-destructive text-sm mt-1">{errors.phone.message}</p>}
                 </div>
@@ -623,10 +652,9 @@ const KenyanExperiencesProgram = () => {
               <RefundPolicyDialog />
 
               <Button type="submit" className="w-full h-12 text-base" disabled={isSubmitting}>
-                {isSubmitting 
-                  ? (config?.formConfig?.messages?.loadingMessage || "Submitting...") 
-                  : (config?.formConfig?.buttons?.submit || "Submit Registration")
-                }
+                {isSubmitting
+                  ? config?.formConfig?.messages?.loadingMessage || "Submitting..."
+                  : config?.formConfig?.buttons?.submit || "Submit Registration"}
               </Button>
             </form>
           </Card>

@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, GripVertical } from 'lucide-react';
-import { toast } from 'sonner';
-import { cmsService } from '@/services/cmsService';
-import MediaUploader from './MediaUploader';
-import { TeamBuildingPageConfig, TeamBuildingPackage, SampleFlowItem } from '@/hooks/useTeamBuildingPageConfig';
+import React, { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Trash2, GripVertical } from "lucide-react";
+import { toast } from "sonner";
+import { cmsService } from "@/services/cmsService";
+import MediaUploader from "./MediaUploader";
+import { TeamBuildingPageConfig, TeamBuildingPackage, SampleFlowItem } from "@/hooks/useTeamBuildingPageConfig";
 
 interface TeamBuildingEditorProps {
   isOpen: boolean;
@@ -19,74 +19,77 @@ interface TeamBuildingEditorProps {
 }
 
 const defaultConfig: TeamBuildingPageConfig = {
-  title: 'Team Building',
-  subtitle: '(All Ages)',
-  description: 'Create safe, fun, memory-filled experiences with measurable outcomes. Each package is 90% fun + 10% reflection, focusing on team communication and problem-solving.',
-  featuredMediaUrl: '',
-  mediaType: 'photo',
+  title: "Team Building",
+  subtitle: "(All Ages)",
+  description:
+    "Create safe, fun, memory-filled experiences with measurable outcomes. Each package is 90% fun + 10% reflection, focusing on team communication and problem-solving.",
+  featuredMediaUrl: "",
+  mediaType: "photo",
   packages: [
     {
-      id: 'adventure',
-      title: 'Adventure Party',
-      description: 'Arrival Icebreaker • Obstacle Challenge • Water Game • Treasure Hunt • Cake & Awards • Closing Circle',
-      features: ['Team Communication', 'Problem-Solving', '90% Fun + 10% Reflection']
+      id: "adventure",
+      title: "Adventure Party",
+      description:
+        "Arrival Icebreaker • Obstacle Challenge • Water Game • Treasure Hunt • Cake & Awards • Closing Circle",
+      features: ["Team Communication", "Problem-Solving", "90% Fun + 10% Reflection"],
     },
     {
-      id: 'bushcraft',
-      title: 'Bushcraft Bash',
-      description: 'Fire-making challenges, shelter building, navigation skills, and outdoor cooking activities.',
-      features: ['Survival Skills', 'Leadership', 'Outdoor Confidence']
+      id: "bushcraft",
+      title: "Bushcraft Bash",
+      description: "Fire-making challenges, shelter building, navigation skills, and outdoor cooking activities.",
+      features: ["Survival Skills", "Leadership", "Outdoor Confidence"],
     },
     {
-      id: 'nature-carnival',
-      title: 'Nature Carnival',
-      description: 'Nature games, eco-friendly activities, wildlife exploration, and environmental challenges.',
-      features: ['Environmental Awareness', 'Teamwork', 'Creative Problem-Solving']
+      id: "nature-carnival",
+      title: "Nature Carnival",
+      description: "Nature games, eco-friendly activities, wildlife exploration, and environmental challenges.",
+      features: ["Environmental Awareness", "Teamwork", "Creative Problem-Solving"],
     },
     {
-      id: 'family-corporate',
-      title: 'Family/Corporate Build',
-      description: 'Customized team building experiences for families and corporate groups with measurable outcomes.',
-      features: ['Custom Activities', 'Team Bonding', 'Measurable Results']
-    }
+      id: "family-corporate",
+      title: "Family/Corporate Build",
+      description: "Customized team building experiences for families and corporate groups with measurable outcomes.",
+      features: ["Custom Activities", "Team Bonding", "Measurable Results"],
+    },
   ],
   sampleFlow: [
-    { title: 'Arrival Icebreaker', description: 'Welcome activities and team formation' },
-    { title: 'Obstacle Challenge', description: 'Physical and mental challenges' },
-    { title: 'Water Game', description: 'Fun water-based team activities' },
-    { title: 'Treasure Hunt', description: 'Problem-solving adventure' },
-    { title: 'Cake & Awards', description: 'Celebration and recognition' },
-    { title: 'Closing Circle', description: 'Reflection and key takeaways' }
+    { title: "Arrival Icebreaker", description: "Welcome activities and team formation" },
+    { title: "Obstacle Challenge", description: "Physical and mental challenges" },
+    { title: "Water Game", description: "Fun water-based team activities" },
+    { title: "Treasure Hunt", description: "Problem-solving adventure" },
+    { title: "Cake & Awards", description: "Celebration and recognition" },
+    { title: "Closing Circle", description: "Reflection and key takeaways" },
   ],
   formConfig: {
-    formTitle: 'Book Your Experience',
-    ctaText: 'Book Experience',
+    formTitle: "Book Your Experience",
+    ctaText: "Book Experience",
     fields: {
-      occasion: { label: 'Occasion', placeholder: 'Select occasion' },
-      adultsNumber: { label: 'Number of Adults', placeholder: 'e.g., 10' },
-      childrenNumber: { label: 'Number of Children', placeholder: 'e.g., 5' },
-      ageRange: { label: 'Age Range', placeholder: 'Select age range' },
-      package: { label: 'Package', placeholder: 'Select a package' },
-      eventDate: { label: 'Event Date', placeholder: 'Select date' },
-      location: { label: 'Location', placeholder: 'Select location' },
-      decor: { label: 'Decoration Package' },
-      catering: { label: 'Catering Services' },
-      email: { label: 'Email Address', placeholder: 'your@email.com' },
-      phone: { label: 'Phone Number', placeholder: '+254 700 000 000' }
+      occasion: { label: "Occasion", placeholder: "Select occasion" },
+      adultsNumber: { label: "Number of Adults", placeholder: "e.g., 10" },
+      childrenNumber: { label: "Number of Children", placeholder: "e.g., 5" },
+      ageRange: { label: "Age Range", placeholder: "Select age range" },
+      package: { label: "Package", placeholder: "Select a package" },
+      eventDate: { label: "Event Date", placeholder: "Select date" },
+      location: { label: "Location", placeholder: "Select location" },
+      decor: { label: "Decoration Package" },
+      catering: { label: "Catering Services" },
+      email: { label: "Email Address", placeholder: "your@email.com" },
+      phone: { label: "Phone Number", placeholder: "+254 114 705763" },
     },
     buttons: {
-      submit: 'Book Experience',
-      back: 'Back to Home'
+      submit: "Book Experience",
+      back: "Back to Home",
     },
     messages: {
-      successMessage: 'Booking submitted successfully! We\'ll contact you shortly.',
-      errorMessage: 'Failed to submit booking. Please try again.',
-      loadingMessage: 'Submitting...'
-    }
+      successMessage: "Booking submitted successfully! We'll contact you shortly.",
+      errorMessage: "Failed to submit booking. Please try again.",
+      loadingMessage: "Submitting...",
+    },
   },
-  metaTitle: 'Team Building Programs | Amuse Kenya Corporate Events',
-  metaDescription: 'Strengthen your team with nature-based team building activities at Karura Forest. Customized corporate programs focusing on collaboration, communication, and leadership development.',
-  keywords: 'team building Kenya, corporate events, team activities, leadership training, corporate retreats Nairobi'
+  metaTitle: "Team Building Programs | Amuse Kenya Corporate Events",
+  metaDescription:
+    "Strengthen your team with nature-based team building activities at Karura Forest. Customized corporate programs focusing on collaboration, communication, and leadership development.",
+  keywords: "team building Kenya, corporate events, team activities, leadership training, corporate retreats Nairobi",
 };
 
 export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, onClose, onSave }) => {
@@ -104,7 +107,7 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
   const loadConfig = async () => {
     setIsLoading(true);
     try {
-      const content = await cmsService.getContentBySlug('team-building-page', 'experience_page');
+      const content = await cmsService.getContentBySlug("team-building-page", "experience_page");
       if (content) {
         setExistingId(content.id);
         if (content.metadata?.pageConfig) {
@@ -112,7 +115,7 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
         }
       }
     } catch (error) {
-      console.error('Error loading team building config:', error);
+      console.error("Error loading team building config:", error);
     } finally {
       setIsLoading(false);
     }
@@ -121,14 +124,14 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await cmsService.updateExperiencePageConfig('team-building', { pageConfig: config });
-      window.dispatchEvent(new CustomEvent('cms-content-updated'));
-      toast.success('Team Building page saved successfully');
+      await cmsService.updateExperiencePageConfig("team-building", { pageConfig: config });
+      window.dispatchEvent(new CustomEvent("cms-content-updated"));
+      toast.success("Team Building page saved successfully");
       onSave();
       onClose();
     } catch (error) {
-      console.error('Error saving team building config:', error);
-      toast.error('Failed to save changes');
+      console.error("Error saving team building config:", error);
+      toast.error("Failed to save changes");
     } finally {
       setIsSaving(false);
     }
@@ -150,7 +153,7 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
 
   const addPackageFeature = (pkgIndex: number) => {
     const updated = [...config.packages];
-    updated[pkgIndex] = { ...updated[pkgIndex], features: [...updated[pkgIndex].features, ''] };
+    updated[pkgIndex] = { ...updated[pkgIndex], features: [...updated[pkgIndex].features, ""] };
     setConfig({ ...config, packages: updated });
   };
 
@@ -164,9 +167,9 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
   const addPackage = () => {
     const newPackage: TeamBuildingPackage = {
       id: `package-${Date.now()}`,
-      title: 'New Package',
-      description: 'Package description',
-      features: ['Feature 1']
+      title: "New Package",
+      description: "Package description",
+      features: ["Feature 1"],
     };
     setConfig({ ...config, packages: [...config.packages, newPackage] });
   };
@@ -183,9 +186,9 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
   };
 
   const addSampleFlowItem = () => {
-    setConfig({ 
-      ...config, 
-      sampleFlow: [...config.sampleFlow, { title: '', description: '' }] 
+    setConfig({
+      ...config,
+      sampleFlow: [...config.sampleFlow, { title: "", description: "" }],
     });
   };
 
@@ -203,10 +206,10 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
           ...config.formConfig.fields,
           [fieldKey]: {
             ...config.formConfig.fields[fieldKey],
-            [property]: value
-          }
-        }
-      }
+            [property]: value,
+          },
+        },
+      },
     });
   };
 
@@ -234,17 +237,11 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Page Title</Label>
-                  <Input
-                    value={config.title}
-                    onChange={(e) => setConfig({ ...config, title: e.target.value })}
-                  />
+                  <Input value={config.title} onChange={(e) => setConfig({ ...config, title: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label>Subtitle</Label>
-                  <Input
-                    value={config.subtitle}
-                    onChange={(e) => setConfig({ ...config, subtitle: e.target.value })}
-                  />
+                  <Input value={config.subtitle} onChange={(e) => setConfig({ ...config, subtitle: e.target.value })} />
                 </div>
               </div>
 
@@ -286,15 +283,11 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
                           <GripVertical className="h-4 w-4 text-muted-foreground" />
                           <Input
                             value={pkg.title}
-                            onChange={(e) => updatePackage(pkgIndex, 'title', e.target.value)}
+                            onChange={(e) => updatePackage(pkgIndex, "title", e.target.value)}
                             className="font-semibold w-48"
                           />
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => removePackage(pkgIndex)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => removePackage(pkgIndex)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -304,7 +297,7 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
                         <Label>Description</Label>
                         <Textarea
                           value={pkg.description}
-                          onChange={(e) => updatePackage(pkgIndex, 'description', e.target.value)}
+                          onChange={(e) => updatePackage(pkgIndex, "description", e.target.value)}
                           rows={2}
                         />
                       </div>
@@ -312,11 +305,7 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <Label>Features</Label>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => addPackageFeature(pkgIndex)}
-                          >
+                          <Button variant="outline" size="sm" onClick={() => addPackageFeature(pkgIndex)}>
                             <Plus className="h-3 w-3 mr-1" /> Add
                           </Button>
                         </div>
@@ -361,22 +350,18 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
                         <Label className="text-xs">Step Title</Label>
                         <Input
                           value={item.title}
-                          onChange={(e) => updateSampleFlowItem(index, 'title', e.target.value)}
+                          onChange={(e) => updateSampleFlowItem(index, "title", e.target.value)}
                         />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Description</Label>
                         <Input
                           value={item.description}
-                          onChange={(e) => updateSampleFlowItem(index, 'description', e.target.value)}
+                          onChange={(e) => updateSampleFlowItem(index, "description", e.target.value)}
                         />
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeSampleFlowItem(index)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => removeSampleFlowItem(index)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
@@ -395,20 +380,24 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
                       <Label>Form Title</Label>
                       <Input
                         value={config.formConfig.formTitle}
-                        onChange={(e) => setConfig({
-                          ...config,
-                          formConfig: { ...config.formConfig, formTitle: e.target.value }
-                        })}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            formConfig: { ...config.formConfig, formTitle: e.target.value },
+                          })
+                        }
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Submit Button Text</Label>
                       <Input
                         value={config.formConfig.ctaText}
-                        onChange={(e) => setConfig({
-                          ...config,
-                          formConfig: { ...config.formConfig, ctaText: e.target.value }
-                        })}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            formConfig: { ...config.formConfig, ctaText: e.target.value },
+                          })
+                        }
                       />
                     </div>
                   </div>
@@ -423,18 +412,15 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
                   {Object.entries(config.formConfig.fields).map(([key, field]) => (
                     <div key={key} className="grid grid-cols-2 gap-3 pb-3 border-b last:border-b-0">
                       <div className="space-y-1">
-                        <Label className="text-xs capitalize">{key.replace(/([A-Z])/g, ' $1').trim()} Label</Label>
-                        <Input
-                          value={field.label}
-                          onChange={(e) => updateFormField(key, 'label', e.target.value)}
-                        />
+                        <Label className="text-xs capitalize">{key.replace(/([A-Z])/g, " $1").trim()} Label</Label>
+                        <Input value={field.label} onChange={(e) => updateFormField(key, "label", e.target.value)} />
                       </div>
                       {field.placeholder !== undefined && (
                         <div className="space-y-1">
                           <Label className="text-xs">Placeholder</Label>
                           <Input
-                            value={field.placeholder || ''}
-                            onChange={(e) => updateFormField(key, 'placeholder', e.target.value)}
+                            value={field.placeholder || ""}
+                            onChange={(e) => updateFormField(key, "placeholder", e.target.value)}
                           />
                         </div>
                       )}
@@ -452,13 +438,15 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
                     <Label>Success Message</Label>
                     <Textarea
                       value={config.formConfig.messages.successMessage}
-                      onChange={(e) => setConfig({
-                        ...config,
-                        formConfig: {
-                          ...config.formConfig,
-                          messages: { ...config.formConfig.messages, successMessage: e.target.value }
-                        }
-                      })}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          formConfig: {
+                            ...config.formConfig,
+                            messages: { ...config.formConfig.messages, successMessage: e.target.value },
+                          },
+                        })
+                      }
                       rows={2}
                     />
                   </div>
@@ -466,13 +454,15 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
                     <Label>Error Message</Label>
                     <Input
                       value={config.formConfig.messages.errorMessage}
-                      onChange={(e) => setConfig({
-                        ...config,
-                        formConfig: {
-                          ...config.formConfig,
-                          messages: { ...config.formConfig.messages, errorMessage: e.target.value }
-                        }
-                      })}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          formConfig: {
+                            ...config.formConfig,
+                            messages: { ...config.formConfig.messages, errorMessage: e.target.value },
+                          },
+                        })
+                      }
                     />
                   </div>
                 </CardContent>
@@ -503,19 +493,18 @@ export const TeamBuildingEditor: React.FC<TeamBuildingEditorProps> = ({ isOpen, 
 
               <div className="space-y-2">
                 <Label>Keywords (comma-separated)</Label>
-                <Input
-                  value={config.keywords}
-                  onChange={(e) => setConfig({ ...config, keywords: e.target.value })}
-                />
+                <Input value={config.keywords} onChange={(e) => setConfig({ ...config, keywords: e.target.value })} />
               </div>
             </TabsContent>
           </Tabs>
         )}
 
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
           <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Changes'}
+            {isSaving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </DialogContent>

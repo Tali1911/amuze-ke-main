@@ -148,8 +148,8 @@ export const invoiceService = {
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text('Amuse Kenya', 14, 40);
-    doc.text('Karura Forest, Gate F', 14, 45);
-    doc.text('Thigiri Ridge, Nairobi', 14, 50);
+    doc.text('Sigiria Karura Forest Gate F entrance', 14, 45);
+    doc.text('(Sigiria coffee house), Nairobi', 14, 50);
     doc.text('info@amusekenya.co.ke', 14, 55);
     doc.text('+254 114 705 763', 14, 60);
 

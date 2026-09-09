@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { clientProfileService, ClientProfile } from '@/services/clientProfileService';
+import { getPublicBase } from '@/lib/publicUrl';
 
 interface ClientAuthContextType {
   user: User | null;
@@ -77,7 +78,7 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + window.location.pathname,
+        redirectTo: getPublicBase() + window.location.pathname,
       },
     });
     if (error) {
@@ -107,7 +108,7 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
       email,
       password,
       options: {
-        emailRedirectTo: window.location.origin + window.location.pathname,
+        emailRedirectTo: getPublicBase() + window.location.pathname,
         // account_type=client keeps public-site signups out of the staff approval queue
         data: { full_name: fullName, name: fullName, account_type: 'client' },
       },
@@ -117,7 +118,7 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + '/reset-password',
+      redirectTo: getPublicBase() + '/reset-password',
     });
     return { error: error as Error | null };
   };

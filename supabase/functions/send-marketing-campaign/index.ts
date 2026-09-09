@@ -15,7 +15,7 @@ import { Resend } from "npm:resend@2.0.0";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-internal-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const APP_URL = "https://amusekenya.co.ke";
@@ -108,19 +108,24 @@ serve(async (req) => {
       return jsonResponse({ success: false, error: "Server configuration error: missing anon key" }, 500);
     }
 
-    // Auth: require admin/marketing/ceo
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return jsonResponse({ success: false, error: "Unauthorized: missing bearer token" }, 401);
-    }
-    const userSupabase = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    // Auth: either a marketing/admin/ceo user bearer token, OR an internal
+    // service-key call from the scheduled-dispatch worker.
+    const internalSecret = req.headers.get("x-internal-secret");
+    const isInternal = internalSecret && internalSecret === serviceKey;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const authorization = await authorizeStaffCaller(userSupabase);
-    if (authorization.error) {
-      return jsonResponse({ success: false, error: authorization.error }, authorization.status || 401);
+    if (!isInternal) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
+        return jsonResponse({ success: false, error: "Unauthorized: missing bearer token" }, 401);
+      }
+      const userSupabase = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const authorization = await authorizeStaffCaller(userSupabase);
+      if (authorization.error) {
+        return jsonResponse({ success: false, error: authorization.error }, authorization.status || 401);
+      }
     }
 
     const body: SendBody = await req.json();

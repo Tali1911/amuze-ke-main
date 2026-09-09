@@ -32,7 +32,8 @@ import {
   UserCircle,
   CalendarOff,
   MapPin,
-  Tag
+  Tag,
+  Zap
 } from "lucide-react";
 import { ROLES } from '@/services/roleService';
 import { coachAccessService } from '@/services/coachAccessService';
@@ -99,6 +100,7 @@ const PortalSidebar: React.FC<PortalSidebarProps> = ({
           { id: 'content', label: 'Content (CMS)', icon: FileText, description: 'Create, edit, and publish website and marketing content' },
           { id: 'customers', label: 'Customers', icon: Users, description: 'View and manage your customer database and profiles' },
           { id: 'campaigns', label: 'Campaigns', icon: Megaphone, description: 'Plan, launch, and track marketing campaigns and promotions' },
+          { id: 'automations', label: 'Automations', icon: Zap, description: 'Trigger-based email sequences (welcome, drip, re-engagement) running on Resend' },
           { id: 'email-health', label: 'Email Health', icon: TrendingUp, description: 'Monitor email deliverability, open rates, and sender reputation' },
           { id: 'email-deliveries', label: 'Email Deliveries', icon: Mail, description: 'Track sent emails and their delivery status in real-time' },
           { id: 'email-segments', label: 'Email Segments', icon: Users, description: 'Create and manage audience segments for targeted email campaigns' },
@@ -179,6 +181,7 @@ const PortalSidebar: React.FC<PortalSidebarProps> = ({
           { id: 'customer-management', label: 'Customer Management', icon: Users, description: 'View and manage customer records and contact information' },
           { id: 'camp-registrations', label: 'Camp Registrations', icon: Tent, description: 'Manage camp sign-ups, check-ins, and attendance records' },
           { id: 'program-registrations', label: 'Program Registrations', icon: Calendar, description: 'Manage enrolments and registrations for coaching programmes' },
+          { id: 'collections', label: 'Pending Collections', icon: Receipt, description: 'Help accounts follow up on unpaid attendees — same view & edit rights as the Accounts team, with PDF invoices and CSV export' },
           { id: 'camp-analytics', label: 'Camp Analytics', icon: TrendingUp, description: 'Registration and revenue analytics across all camp programs' },
           { id: 'system', label: 'System Admin', icon: Database, description: 'Database management, backups, and system maintenance tools' },
           { id: 'settings', label: 'System Settings', icon: Settings, description: 'Configure global system settings and feature toggles' },

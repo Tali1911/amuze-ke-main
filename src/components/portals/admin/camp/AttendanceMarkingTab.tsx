@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { getChildBookedDates, isChildBookedOnDate } from '@/utils/registrationDate';
 import { Search, CheckCircle, XCircle, Clock, QrCode, Calendar, Users, CalendarDays, Mail, Download, FileText } from 'lucide-react';
 import { campRegistrationService } from '@/services/campRegistrationService';
 import { attendanceService } from '@/services/attendanceService';
@@ -27,6 +28,7 @@ import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { QRScannerDialog } from '@/components/attendance/QRScannerDialog';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { displayLocation } from '@/lib/locationDisplay';
 
 interface ExpectedChild {
   registration: CampRegistration;
@@ -48,6 +50,14 @@ export const AttendanceMarkingTab: React.FC = () => {
   const [sendEmailNotifications, setSendEmailNotifications] = useState(false);
   const [confirmCheckoutOpen, setConfirmCheckoutOpen] = useState(false);
   const [pendingCheckout, setPendingCheckout] = useState<{ attendanceId: string; childName: string; registrationId: string } | null>(null);
+  // Timestamp per row of last check-in — used to block accidental immediate
+  // checkout (touch/tap click-through) right after a check-in.
+  const [recentCheckIns, setRecentCheckIns] = useState<Record<string, number>>({});
+  // Guards the AlertDialog action button from receiving a stray click that
+  // "falls through" from the trigger during Radix's open animation.
+  const [confirmReady, setConfirmReady] = useState(false);
+  const CHECKIN_COOLDOWN_MS = 4000;
+  const CONFIRM_DELAY_MS = 100;
 
   // Batch load attendance for all registrations on a date - eliminates N+1 queries.
   // Chunk the .in(...) lookup so that very large registration lists don't blow
@@ -125,6 +135,17 @@ export const AttendanceMarkingTab: React.FC = () => {
     loadRegistrations();
   }, [campTypeFilter, selectedDate]);
 
+  useEffect(() => {
+    if (!confirmCheckoutOpen) {
+      setConfirmReady(false);
+      return;
+    }
+
+    setConfirmReady(false);
+    const timer = window.setTimeout(() => setConfirmReady(true), CONFIRM_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [confirmCheckoutOpen]);
+
   // Client-side filtering by child name, registration number, and location
   const filteredExpectedChildren = useMemo((): ExpectedChild[] => {
     const expected: ExpectedChild[] = [];
@@ -134,8 +155,7 @@ export const AttendanceMarkingTab: React.FC = () => {
       if (locationFilter !== 'all' && (reg.location || 'Kurura Gate F') !== locationFilter) continue;
 
       for (const child of reg.children) {
-        const selectedDates = child.selectedDates || [];
-        if (selectedDates.includes(selectedDate)) {
+        if (isChildBookedOnDate(child, selectedDate)) {
           const defaultSession = (reg.camp_type === 'little-forest' || (reg.location || '') === 'Ngong Sanctuary') ? 'half' : 'full';
           let session: string = defaultSession;
           if (child.selectedSessions && typeof child.selectedSessions === 'object' && !Array.isArray(child.selectedSessions)) {
@@ -166,8 +186,7 @@ export const AttendanceMarkingTab: React.FC = () => {
     const expected: ExpectedChild[] = [];
     for (const reg of registrations) {
       for (const child of reg.children) {
-        const selectedDates = child.selectedDates || [];
-        if (selectedDates.includes(selectedDate)) {
+        if (isChildBookedOnDate(child, selectedDate)) {
           const defaultSession = (reg.camp_type === 'little-forest' || (reg.location || '') === 'Ngong Sanctuary') ? 'half' : 'full';
           let session: string = defaultSession;
           if (child.selectedSessions && typeof child.selectedSessions === 'object' && !Array.isArray(child.selectedSessions)) {
@@ -213,6 +232,8 @@ export const AttendanceMarkingTab: React.FC = () => {
 
       const attendance = await attendanceService.hasCheckedInOnDate(registrationId, childName, selectedDate);
       setAttendanceStatus(prev => ({ ...prev, [key]: attendance }));
+      // Start cooldown so an accidental follow-up tap can't trigger checkout.
+      setRecentCheckIns(prev => ({ ...prev, [key]: Date.now() }));
     } catch (error) {
       console.error('Error checking in:', error);
       toast.error('Failed to check in');
@@ -276,7 +297,7 @@ export const AttendanceMarkingTab: React.FC = () => {
 
       let checkedInCount = 0, alreadyCheckedInCount = 0, notExpectedCount = 0;
       for (const child of registration.children) {
-        if (!(child.selectedDates || []).includes(selectedDate)) { notExpectedCount++; continue; }
+        if (!isChildBookedOnDate(child, selectedDate)) { notExpectedCount++; continue; }
         const hasCheckedIn = await attendanceService.hasCheckedInOnDate(registration.id!, child.childName, selectedDate);
         if (!hasCheckedIn) {
           await attendanceService.checkInForDate(registration.id!, child.childName, user.id, selectedDate);
@@ -316,7 +337,7 @@ export const AttendanceMarkingTab: React.FC = () => {
       toast.error('No data to export');
       return;
     }
-    const headers = ['Reg #', 'Camp Type', 'Parent Name', 'Phone', 'Child Name', 'Age', 'Session', 'Payment', 'Status', 'Check-In Time', 'Check-Out Time'];
+    const headers = ['Reg #', 'Camp Type', 'Parent Name', 'Phone', 'Child Name', 'Age', 'Session', 'Payment', 'Status', 'Check-In Time', 'Check-Out Time', 'Special Needs/Medical Info'];
     const rows = items.map(item => {
       const key = `${item.registration.id}-${item.child.childName}-${selectedDate}`;
       const att = attendanceStatus[key];
@@ -332,7 +353,8 @@ export const AttendanceMarkingTab: React.FC = () => {
         item.registration.payment_status,
         status,
         att?.check_in_time ? new Date(att.check_in_time).toLocaleTimeString() : '',
-        att?.check_out_time ? new Date(att.check_out_time).toLocaleTimeString() : ''
+        att?.check_out_time ? new Date(att.check_out_time).toLocaleTimeString() : '',
+        item.child.specialNeeds || ''
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
     });
 
@@ -378,12 +400,13 @@ export const AttendanceMarkingTab: React.FC = () => {
           item.registration.payment_status,
           status,
           att?.check_in_time ? new Date(att.check_in_time).toLocaleTimeString() : '',
-          att?.check_out_time ? new Date(att.check_out_time).toLocaleTimeString() : ''
+          att?.check_out_time ? new Date(att.check_out_time).toLocaleTimeString() : '',
+          item.child.specialNeeds || ''
         ];
       });
 
       autoTable(doc, {
-        head: [['Reg #', 'Camp', 'Parent', 'Phone', 'Child', 'Age', 'Session', 'Payment', 'Status', 'In', 'Out']],
+        head: [['Reg #', 'Camp', 'Parent', 'Phone', 'Child', 'Age', 'Session', 'Payment', 'Status', 'In', 'Out', 'Special Needs']],
         body: tableData,
         startY: 34,
         styles: { fontSize: 8 },
@@ -399,7 +422,7 @@ export const AttendanceMarkingTab: React.FC = () => {
   }, [filteredExpectedChildren, attendanceStatus, selectedDate, totalExpected, totalPresent, totalAbsent, paidExpectedCount, unpaidExpectedCount]);
 
   const formatChildDates = (child: CampChild): string => {
-    const dates = child.selectedDates || [];
+    const dates = getChildBookedDates(child);
     if (dates.length === 0) return 'No dates selected';
     if (dates.length <= 3) return dates.map(d => format(parseISO(d), 'MMM d')).join(', ');
     return `${dates.length} days`;
@@ -457,6 +480,9 @@ export const AttendanceMarkingTab: React.FC = () => {
                   const attendance = attendanceStatus[key];
                   const checkedIn = !!attendance;
                   const checkedOut = attendance?.check_out_time;
+                  const lastCheckInAt = recentCheckIns[key] || 0;
+                  const cooldownRemaining = Math.max(0, CHECKIN_COOLDOWN_MS - (Date.now() - lastCheckInAt));
+                  const checkoutLocked = cooldownRemaining > 0;
 
                   return (
                     <TableRow key={`${key}-${idx}`}>
@@ -473,8 +499,8 @@ export const AttendanceMarkingTab: React.FC = () => {
                           const siblings = (item.registration.children || []).filter(
                             c => c.childName !== item.child.childName
                           );
-                          const otherToday = siblings.filter(c => (c.selectedDates || []).includes(selectedDate));
-                          const otherOtherDays = siblings.filter(c => !(c.selectedDates || []).includes(selectedDate));
+                          const otherToday = siblings.filter(c => isChildBookedOnDate(c, selectedDate));
+                          const otherOtherDays = siblings.filter(c => !isChildBookedOnDate(c, selectedDate));
                           if (siblings.length === 0) return null;
                           const parts: string[] = [];
                           if (otherToday.length) parts.push(`${otherToday.length} sibling${otherToday.length > 1 ? 's' : ''} today`);
@@ -483,7 +509,7 @@ export const AttendanceMarkingTab: React.FC = () => {
                             parts.push(`${otherOtherDays.length} on other date(s): ${names}`);
                           }
                           return (
-                            <div className="text-[10px] text-muted-foreground mt-0.5" title={siblings.map(s => `${s.childName}: ${(s.selectedDates || []).join(', ')}`).join('\n')}>
+                            <div className="text-[10px] text-muted-foreground mt-0.5" title={siblings.map(s => `${s.childName}: ${getChildBookedDates(s).join(', ')}`).join('\n')}>
                               {parts.join(' · ')}
                             </div>
                           );
@@ -496,12 +522,12 @@ export const AttendanceMarkingTab: React.FC = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <span className="text-xs text-muted-foreground">{item.registration.location || 'Kurura Gate F'}</span>
+                        <span className="text-xs text-muted-foreground">{displayLocation(item.registration.location || 'Kurura Gate F')}</span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-xs">
                           <CalendarDays className="h-3 w-3 text-muted-foreground" />
-                          <span title={item.child.selectedDates?.join(', ')}>
+                          <span title={getChildBookedDates(item.child).join(', ')}>
                             {formatChildDates(item.child)}
                           </span>
                         </div>
@@ -550,8 +576,14 @@ export const AttendanceMarkingTab: React.FC = () => {
                             Check In
                           </Button>
                         ) : !checkedOut ? (
-                          <Button size="sm" variant="outline" onClick={() => promptCheckOut(attendance.id, item.child.childName, item.registration.id!)}>
-                            Check Out
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={checkoutLocked}
+                            title={checkoutLocked ? `Just checked in — wait ${Math.ceil(cooldownRemaining / 1000)}s before checkout` : undefined}
+                            onClick={() => promptCheckOut(attendance.id, item.child.childName, item.registration.id!)}
+                          >
+                            {checkoutLocked ? `Wait ${Math.ceil(cooldownRemaining / 1000)}s` : 'Check Out'}
                           </Button>
                         ) : (
                           <span className="text-sm text-muted-foreground">Completed</span>
@@ -664,7 +696,7 @@ export const AttendanceMarkingTab: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
-                <SelectItem value="Kurura Gate F">Kurura Gate F</SelectItem>
+                <SelectItem value="Kurura Gate F">Karura Gate F</SelectItem>
                 <SelectItem value="Ngong Sanctuary">Ngong Sanctuary</SelectItem>
               </SelectContent>
             </Select>
@@ -683,7 +715,13 @@ export const AttendanceMarkingTab: React.FC = () => {
 
       <QRScannerDialog open={scannerOpen} onClose={() => setScannerOpen(false)} onScanSuccess={handleQRScan} />
 
-      <AlertDialog open={confirmCheckoutOpen} onOpenChange={setConfirmCheckoutOpen}>
+      <AlertDialog
+        open={confirmCheckoutOpen}
+        onOpenChange={(open) => {
+          setConfirmCheckoutOpen(open);
+          if (!open) setPendingCheckout(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Check-Out</AlertDialogTitle>
@@ -692,8 +730,13 @@ export const AttendanceMarkingTab: React.FC = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setPendingCheckout(null); }}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCheckOut}>Check Out</AlertDialogAction>
+            <AlertDialogCancel autoFocus>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!confirmReady}
+              onClick={handleCheckOut}
+            >
+              {confirmReady ? 'Check Out' : 'Please wait…'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

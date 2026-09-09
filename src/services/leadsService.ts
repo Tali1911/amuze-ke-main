@@ -158,4 +158,9 @@ export interface Lead {
   created_at: string;
   updated_at: string;
   assigned_to?: string;
+  pipeline_stage?: 'new' | 'contacted' | 'quoted' | 'booked' | 'lost';
+  tags?: string[];
+  owner_id?: string | null;
+  next_followup_at?: string | null;
+  last_activity_at?: string | null;
 }

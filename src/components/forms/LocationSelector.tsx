@@ -2,6 +2,8 @@ import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MapPin } from 'lucide-react';
+import { displayLocation } from '@/lib/locationDisplay';
+
 
 interface LocationSelectorProps {
   locations: string[];
@@ -31,9 +33,10 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
         <SelectContent>
           {locations.map((loc) => (
             <SelectItem key={loc} value={loc}>
-              {loc}
+              {displayLocation(loc)}
             </SelectItem>
           ))}
+
         </SelectContent>
       </Select>
     </div>

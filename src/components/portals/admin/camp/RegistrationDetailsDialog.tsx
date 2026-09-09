@@ -69,18 +69,23 @@ export const RegistrationDetailsDialog: React.FC<RegistrationDetailsDialogProps>
   const recomputeChildPrice = (child: typeof editedChildren[number]): number => {
     if (isFlatRateCamp || child.activityType === 'archery') return Number(child.price) || 0;
     const sessions = child.selectedSessions;
+    // Only the dates the child is actually registered for count towards the price.
+    // Stale/duplicate keys left over in selectedSessions must be ignored.
+    const dates = Array.from(new Set(child.selectedDates || []));
+    if (dates.length === 0) return Number(child.price) || 0;
+
+    const rate = (s: 'half' | 'full' | undefined) => (s === 'full' ? FULL_PRICE : HALF_PRICE);
+
     if (Array.isArray(sessions)) {
-      // Legacy uniform: derive from each entry
-      return sessions.reduce((sum, s) => sum + (s === 'full' ? FULL_PRICE : HALF_PRICE), 0);
+      return dates.reduce((sum, _d, i) => sum + rate(sessions[i] as 'half' | 'full'), 0);
     }
     if (sessions && typeof sessions === 'object') {
-      return Object.values(sessions as Record<string, 'half' | 'full'>).reduce(
-        (sum, s) => sum + (s === 'full' ? FULL_PRICE : HALF_PRICE),
-        0
-      );
+      const map = sessions as Record<string, 'half' | 'full'>;
+      return dates.reduce((sum, d) => sum + rate(map[d]), 0);
     }
     return Number(child.price) || 0;
   };
+
 
   const editedTotal = useMemo(
     () => editedChildren.reduce((s, c) => s + (Number(c.price) || 0), 0),
@@ -95,8 +100,19 @@ export const RegistrationDetailsDialog: React.FC<RegistrationDetailsDialogProps>
       setEditedChildren(registration.children);
       setDiscountAmount(Number((registration as any).discount_amount) || 0);
       setDiscountReason('');
+      setEditing(false);
     }
   }, [open, registration]);
+
+  // When entering edit mode, normalise prices from the actual selected dates/sessions
+  useEffect(() => {
+    if (!editing) return;
+    setEditedChildren((prev) =>
+      prev.map((c) => ({ ...c, price: recomputeChildPrice(c) }))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
+
 
   // Load existing payment amount when dialog opens or editing starts
   useEffect(() => {
@@ -133,18 +149,21 @@ export const RegistrationDetailsDialog: React.FC<RegistrationDetailsDialogProps>
       const next = [...prev];
       const child = { ...next[childIdx] };
       const sessions = child.selectedSessions;
-      let updatedSessions: Record<string, 'half' | 'full'>;
-      if (Array.isArray(sessions)) {
-        // Convert legacy array to keyed map using selectedDates
-        const map: Record<string, 'half' | 'full'> = {};
-        (child.selectedDates || []).forEach((d, i) => {
-          map[d] = (sessions[i] as 'half' | 'full') || 'half';
-        });
-        updatedSessions = { ...map, [dateKey]: newSession };
-      } else {
-        updatedSessions = { ...(sessions as Record<string, 'half' | 'full'>), [dateKey]: newSession };
-      }
+      const dates = Array.from(new Set(child.selectedDates || []));
+      const existing: Record<string, 'half' | 'full'> = Array.isArray(sessions)
+        ? dates.reduce((acc, d, i) => {
+            acc[d] = (sessions[i] as 'half' | 'full') || 'half';
+            return acc;
+          }, {} as Record<string, 'half' | 'full'>)
+        : { ...((sessions as Record<string, 'half' | 'full'>) || {}) };
+
+      // Keep only the dates this child is registered for (drops stale keys)
+      const updatedSessions: Record<string, 'half' | 'full'> = {};
+      dates.forEach((d) => {
+        updatedSessions[d] = d === dateKey ? newSession : existing[d] || 'half';
+      });
       child.selectedSessions = updatedSessions;
+
       child.price = recomputeChildPrice(child);
       next[childIdx] = child;
       return next;
@@ -644,18 +663,39 @@ export const RegistrationDetailsDialog: React.FC<RegistrationDetailsDialogProps>
           </div>
 
           {/* Consent Status */}
-          <div>
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              {registration.consent_given ? (
-                <ShieldCheck className="h-5 w-5 text-green-600" />
-              ) : (
-                <ShieldX className="h-5 w-5 text-amber-500" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                {registration.consent_given ? (
+                  <ShieldCheck className="h-5 w-5 text-green-600" />
+                ) : (
+                  <ShieldX className="h-5 w-5 text-amber-500" />
+                )}
+                Photography & Video Consent
+              </h3>
+              <Badge variant={registration.consent_given ? 'default' : 'secondary'}>
+                {registration.consent_given ? 'Consent Given' : 'Not Consented'}
+              </Badge>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                {(registration as any).participation_consent_given ? (
+                  <ShieldCheck className="h-5 w-5 text-green-600" />
+                ) : (
+                  <ShieldX className="h-5 w-5 text-amber-500" />
+                )}
+                Participation / Permission Form
+              </h3>
+              <Badge variant={(registration as any).participation_consent_given ? 'default' : 'secondary'}>
+                {(registration as any).participation_consent_given ? 'Accepted' : 'Not recorded'}
+              </Badge>
+              {(registration as any).participation_consent_given && (registration as any).participation_consent_at && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Accepted on {new Date((registration as any).participation_consent_at).toLocaleString()}
+                </p>
               )}
-              Photography & Video Consent
-            </h3>
-            <Badge variant={registration.consent_given ? 'default' : 'secondary'}>
-              {registration.consent_given ? 'Consent Given' : 'Not Consented'}
-            </Badge>
+            </div>
           </div>
 
           <Separator />

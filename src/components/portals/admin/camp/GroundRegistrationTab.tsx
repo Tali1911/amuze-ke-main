@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { displayLocation } from '@/lib/locationDisplay';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ import { QRCodeDownloadModal } from '@/components/camp/QRCodeDownloadModal';
 import { CampRegistration } from '@/types/campRegistration';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { performSecurityChecks, recordSubmission } from '@/services/formSecurityService';
+import { ParticipationConsentDialog } from '@/components/forms/ParticipationConsentDialog';
 
 const childSchema = z.object({
   childName: z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name too long'),
@@ -71,7 +73,8 @@ const SESSIONS_KARURA = [
 ];
 
 const SESSIONS_NGONG = [
-  { value: 'full', label: 'Full Day (9 AM-1 PM)', price: 2000 },
+  { value: 'full', label: 'Full Day (9 AM-3 PM)', price: 2500 },
+  { value: 'half', label: 'Half Day (9 AM-1 PM)', price: 1500 },
   { value: 'archery', label: 'Archery Only (45 mins)', price: 1000 }
 ];
 
@@ -90,6 +93,7 @@ export const GroundRegistrationTab: React.FC = () => {
   const { user } = useSupabaseAuth();
   const [submitting, setSubmitting] = useState(false);
   const [sendEmail, setSendEmail] = useState(true);
+  const [participationConsent, setParticipationConsent] = useState(false);
   const [registrationMode, setRegistrationMode] = useState<'walkin_today' | 'book_future'>('walkin_today');
   const [bookingDates, setBookingDates] = useState<Date[]>([]);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -265,6 +269,12 @@ export const GroundRegistrationTab: React.FC = () => {
       return;
     }
 
+    if (!participationConsent) {
+      toast.error('Please confirm the parent/guardian has read and accepted the permission form.');
+      return;
+    }
+
+
     // Validate sessions: for single-day or walk-in, require at least one session per child
     if (!(registrationMode === 'book_future' && bookingDates.length > 1)) {
       const missingSession = data.children.some(c => !c.selectedSessions || c.selectedSessions.length === 0);
@@ -345,6 +355,8 @@ export const GroundRegistrationTab: React.FC = () => {
           timestamp: Date.now()
         }),
         consent_given: true,
+        participation_consent_given: true,
+        participation_consent_at: new Date().toISOString(),
         status: 'active',
         admin_notes: data.paymentNotes || `Ground registration. Paid: KES ${amountPaid}/${totalAmount}`
       };
@@ -648,7 +660,7 @@ export const GroundRegistrationTab: React.FC = () => {
                     <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
                     <SelectContent>
                       {LOCATIONS.map(loc => (
-                        <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                        <SelectItem key={loc} value={loc}>{displayLocation(loc)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -854,6 +866,13 @@ export const GroundRegistrationTab: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Participation / Permission Form */}
+            <ParticipationConsentDialog
+              checked={participationConsent}
+              onCheckedChange={setParticipationConsent}
+              variant="child"
+            />
 
             {/* Email Toggle */}
             <div className="flex items-center space-x-2">

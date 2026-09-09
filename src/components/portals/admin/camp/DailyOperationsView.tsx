@@ -50,6 +50,10 @@ export const DailyOperationsView: React.FC = () => {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [groundRegOpen, setGroundRegOpen] = useState(false);
   const [confirmCheckoutOpen, setConfirmCheckoutOpen] = useState(false);
+  const [recentCheckIns, setRecentCheckIns] = useState<Record<string, number>>({});
+  const [confirmReady, setConfirmReady] = useState(false);
+  const CHECKIN_COOLDOWN_MS = 4000;
+  const CONFIRM_DELAY_MS = 100;
   const [pendingCheckout, setPendingCheckout] = useState<{ attendanceId: string; childName: string; registrationId: string } | null>(null);
 
   const loadTodaysRegistrations = async () => {
@@ -83,6 +87,17 @@ export const DailyOperationsView: React.FC = () => {
   useEffect(() => {
     loadTodaysRegistrations();
   }, [campTypeFilter]);
+
+  useEffect(() => {
+    if (!confirmCheckoutOpen) {
+      setConfirmReady(false);
+      return;
+    }
+
+    setConfirmReady(false);
+    const timer = window.setTimeout(() => setConfirmReady(true), CONFIRM_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [confirmCheckoutOpen]);
 
   // Real-time subscription to sync payment status changes from Accounts Portal
   useEffect(() => {
@@ -151,6 +166,7 @@ export const DailyOperationsView: React.FC = () => {
       
       const attendance = await attendanceService.hasCheckedInToday(reg.id!, childName);
       setAttendanceStatus(prev => ({ ...prev, [key]: attendance }));
+      setRecentCheckIns(prev => ({ ...prev, [key]: Date.now() }));
     } catch (error) {
       console.error('Error checking in:', error);
       toast.error('Check-in failed');
@@ -440,6 +456,9 @@ export const DailyOperationsView: React.FC = () => {
                   {childRows.map(({ reg, child, key, attendance }) => {
                     const checkedIn = !!attendance;
                     const checkedOut = attendance?.check_out_time;
+                    const lastCheckInAt = recentCheckIns[key] || 0;
+                    const cooldownRemaining = Math.max(0, CHECKIN_COOLDOWN_MS - (Date.now() - lastCheckInAt));
+                    const checkoutLocked = cooldownRemaining > 0;
 
                     return (
                       <TableRow key={key} className={!checkedIn ? 'bg-muted/30' : ''}>
@@ -498,9 +517,11 @@ export const DailyOperationsView: React.FC = () => {
                             <Button
                               size="sm"
                               variant="outline"
+                              disabled={checkoutLocked}
+                              title={checkoutLocked ? `Just checked in — wait ${Math.ceil(cooldownRemaining / 1000)}s before checkout` : undefined}
                               onClick={() => promptCheckOut(attendance.id, child.childName, reg.id!)}
                             >
-                              Check Out
+                              {checkoutLocked ? `Wait ${Math.ceil(cooldownRemaining / 1000)}s` : 'Check Out'}
                             </Button>
                           ) : (
                             <span className="text-xs text-muted-foreground">Done</span>
@@ -522,7 +543,13 @@ export const DailyOperationsView: React.FC = () => {
         onScanSuccess={handleQRScan}
       />
 
-      <AlertDialog open={confirmCheckoutOpen} onOpenChange={setConfirmCheckoutOpen}>
+      <AlertDialog
+        open={confirmCheckoutOpen}
+        onOpenChange={(open) => {
+          setConfirmCheckoutOpen(open);
+          if (!open) setPendingCheckout(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Check-Out</AlertDialogTitle>
@@ -531,8 +558,10 @@ export const DailyOperationsView: React.FC = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setPendingCheckout(null); }}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCheckOut}>Check Out</AlertDialogAction>
+            <AlertDialogCancel autoFocus>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={!confirmReady} onClick={handleCheckOut}>
+              {confirmReady ? 'Check Out' : 'Please wait…'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

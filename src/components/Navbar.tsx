@@ -15,7 +15,7 @@ const Navbar = () => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [mobileExpandedSection, setMobileExpandedSection] = useState<string | null>(null);
   const [scheduleUrl, setScheduleUrl] = useState<string | null>(null);
-  const [navSettings, setNavSettings] = useState<Record<string, boolean>>({});
+  const [navItems, setNavItems] = useState<NavigationSetting[]>([]);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
@@ -48,11 +48,7 @@ const Navbar = () => {
   }, []);
   const loadNavigationSettings = async () => {
     const settings = await navigationService.getNavigationSettings();
-    const visibilityMap = settings.reduce((acc, setting) => {
-      acc[setting.nav_key] = setting.is_visible;
-      return acc;
-    }, {} as Record<string, boolean>);
-    setNavSettings(visibilityMap);
+    setNavItems(settings);
     setSettingsLoaded(true);
   };
   const loadScheduleUrl = async () => {
@@ -148,99 +144,104 @@ const Navbar = () => {
             <img src={amuseLogo} alt="Amuse Kenya Logo" className="h-10 md:h-12 w-auto object-contain" />
           </Link>
 
-          <ul className="hidden lg:flex items-center flex-1 justify-evenly gap-4 ml-12">
-            {settingsLoaded && navSettings.home !== false && <li>
-                <Link to="/" className={cn("font-medium hover-lift", isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100")}>
-                  Home
-                </Link>
-              </li>}
-            {settingsLoaded && navSettings.announcements !== false && <li>
-                <Link to="/announcements" className={cn("font-medium hover-lift", isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100")}>
-                  Announcements
-                </Link>
-              </li>}
-            {/* About Dropdown */}
-            {settingsLoaded && navSettings.about !== false && <li className="relative group">
-                <button className={cn("font-medium hover-lift flex items-center gap-1", isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100")} onMouseEnter={() => setActiveDropdown("about")}>
-                  About Us
-                  <ChevronDown size={16} />
-                </button>
-                <div className={cn("absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border opacity-0 invisible transition-all duration-200 z-50", activeDropdown === "about" && "opacity-100 visible")} onMouseEnter={() => setActiveDropdown("about")} onMouseLeave={() => setActiveDropdown(null)}>
-                  {programDropdowns.about.map(item => <Link key={item.path} to={item.path} className="block px-4 py-3 text-gray-700 hover:bg-forest-50 hover:text-forest-600 first:rounded-t-lg last:rounded-b-lg">
-                      {item.name}
-                    </Link>)}
-                </div>
-              </li>}
+          {(() => {
+            const linkClass = cn(
+              "font-medium hover-lift",
+              isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100"
+            );
+            const buttonClass = cn(
+              "font-medium hover-lift flex items-center gap-1",
+              isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100"
+            );
+            const scheduleClass = cn(
+              "font-medium hover-lift flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
+              isScrolled || !isHomePage
+                ? "bg-forest-600 text-white hover:bg-forest-700"
+                : "bg-white/20 text-white hover:bg-white/30 border border-white/40"
+            );
 
-            {/* Camps Mega Menu */}
-            {settingsLoaded && navSettings.camps !== false && <li className="relative group">
-                <button className={cn("font-medium hover-lift flex items-center gap-1", isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100")} onMouseEnter={() => setActiveDropdown("camps")}>
-                  Camps
-                  <ChevronDown size={16} />
-                </button>
-                <div className={cn("absolute top-full left-0 mt-2 w-[600px] bg-white rounded-lg shadow-lg border opacity-0 invisible transition-all duration-200 z-50", activeDropdown === "camps" && "opacity-100 visible")} onMouseEnter={() => setActiveDropdown("camps")} onMouseLeave={() => setActiveDropdown(null)}>
-                  <div className="grid grid-cols-2 gap-4 p-4">
-                    {Object.entries(programDropdowns.camps).map(([category, items]) => <div key={category}>
-                        <h3 className="font-semibold text-gray-900 mb-2 px-2">{category}</h3>
-                        <div className="space-y-1">
-                          {items.map(item => <Link key={item.path} to={item.path} className="block px-2 py-2 text-sm text-gray-700 hover:bg-forest-50 hover:text-forest-600 rounded">
-                              {item.name}
-                            </Link>)}
+            const desktopRenderers: Record<string, (label: string) => React.ReactNode> = {
+              home: (label) => <Link to="/" className={linkClass}>{label}</Link>,
+              announcements: (label) => <Link to="/announcements" className={linkClass}>{label}</Link>,
+              about: (label) => <Link to="/about" className={linkClass}>{label}</Link>,
+              camp: (label) => <Link to="/camp" className={linkClass}>{label}</Link>,
+              programs: (label) => <Link to="/programs" className={linkClass}>{label}</Link>,
+
+              camps: (label) => (
+                <div className="relative group">
+                  <button className={buttonClass} onMouseEnter={() => setActiveDropdown("camps")}>
+                    {label}
+                    <ChevronDown size={16} />
+                  </button>
+                  <div className={cn("absolute top-full left-0 mt-2 w-[600px] bg-white rounded-lg shadow-lg border opacity-0 invisible transition-all duration-200 z-50", activeDropdown === "camps" && "opacity-100 visible")} onMouseEnter={() => setActiveDropdown("camps")} onMouseLeave={() => setActiveDropdown(null)}>
+                    <div className="grid grid-cols-2 gap-4 p-4">
+                      {Object.entries(programDropdowns.camps).map(([category, items]) => (
+                        <div key={category}>
+                          <h3 className="font-semibold text-gray-900 mb-2 px-2">{category}</h3>
+                          <div className="space-y-1">
+                            {items.map(item => (
+                              <Link key={item.path} to={item.path} className="block px-2 py-2 text-sm text-gray-700 hover:bg-forest-50 hover:text-forest-600 rounded">
+                                {item.name}
+                              </Link>
+                            ))}
+                          </div>
                         </div>
-                      </div>)}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </li>}
-
-            {/* Experiences Link */}
-            {settingsLoaded && navSettings.experiences !== false && <li>
-                <Link to="/experiences/kenyan-experiences" className={cn("font-medium hover-lift", isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100")}>
-                  Experiences
-                </Link>
-              </li>}
-
-            {/* Schools Dropdown */}
-            {settingsLoaded && navSettings.schools !== false && <li className="relative group">
-                <button className={cn("font-medium hover-lift flex items-center gap-1", isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100")} onMouseEnter={() => setActiveDropdown("schools")}>
-                  Schools
-                  <ChevronDown size={16} />
-                </button>
-                <div className={cn("absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border opacity-0 invisible transition-all duration-200 z-50", activeDropdown === "schools" && "opacity-100 visible")} onMouseEnter={() => setActiveDropdown("schools")} onMouseLeave={() => setActiveDropdown(null)}>
-                  {programDropdowns.schools.map(item => <Link key={item.path} to={item.path} className="block px-4 py-3 text-gray-700 hover:bg-forest-50 hover:text-forest-600 first:rounded-t-lg last:rounded-b-lg">{item.name}
-                    </Link>)}
+              ),
+              experiences: (label) => <Link to="/experiences/kenyan-experiences" className={linkClass}>{label}</Link>,
+              schools: (label) => (
+                <div className="relative group">
+                  <button className={buttonClass} onMouseEnter={() => setActiveDropdown("schools")}>
+                    {label}
+                    <ChevronDown size={16} />
+                  </button>
+                  <div className={cn("absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border opacity-0 invisible transition-all duration-200 z-50", activeDropdown === "schools" && "opacity-100 visible")} onMouseEnter={() => setActiveDropdown("schools")} onMouseLeave={() => setActiveDropdown(null)}>
+                    {programDropdowns.schools.map(item => (
+                      <Link key={item.path} to={item.path} className="block px-4 py-3 text-gray-700 hover:bg-forest-50 hover:text-forest-600 first:rounded-t-lg last:rounded-b-lg">
+                        {item.name}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </li>}
-
-            {/* Group Activities Dropdown */}
-            {settingsLoaded && navSettings.groups !== false && <li className="relative group">
-                <button className={cn("font-medium hover-lift flex items-center gap-1", isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100")} onMouseEnter={() => setActiveDropdown("groups")}>
-                  Group Activities
-                  <ChevronDown size={16} />
-                </button>
-                <div className={cn("absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border opacity-0 invisible transition-all duration-200 z-50", activeDropdown === "groups" && "opacity-100 visible")} onMouseEnter={() => setActiveDropdown("groups")} onMouseLeave={() => setActiveDropdown(null)}>
-                  {programDropdowns.groups.map(item => <Link key={item.path} to={item.path} className="block px-4 py-3 text-gray-700 hover:bg-forest-50 hover:text-forest-600 first:rounded-t-lg last:rounded-b-lg">
-                      {item.name}
-                    </Link>)}
+              ),
+              groups: (label) => (
+                <div className="relative group">
+                  <button className={buttonClass} onMouseEnter={() => setActiveDropdown("groups")}>
+                    {label}
+                    <ChevronDown size={16} />
+                  </button>
+                  <div className={cn("absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border opacity-0 invisible transition-all duration-200 z-50", activeDropdown === "groups" && "opacity-100 visible")} onMouseEnter={() => setActiveDropdown("groups")} onMouseLeave={() => setActiveDropdown(null)}>
+                    {programDropdowns.groups.map(item => (
+                      <Link key={item.path} to={item.path} className="block px-4 py-3 text-gray-700 hover:bg-forest-50 hover:text-forest-600 first:rounded-t-lg last:rounded-b-lg">
+                        {item.name}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </li>}
-
-            {settingsLoaded && navSettings.gallery !== false && <li>
-                <Link to="/gallery" className={cn("font-medium hover-lift", isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100")}>
-                  Gallery
-                </Link>
-              </li>}
-            {settingsLoaded && navSettings.contact !== false && <li>
-                <Link to="/contact" className={cn("font-medium hover-lift", isScrolled || !isHomePage ? "text-gray-700 hover:text-forest-600" : "text-white hover:text-forest-100")}>
-                  Contact
-                </Link>
-              </li>}
-            {settingsLoaded && navSettings.schedules !== false && <li>
-                <button onClick={handleScheduleDownload} className={cn("font-medium hover-lift flex items-center gap-2 px-4 py-2 rounded-lg transition-colors", isScrolled || !isHomePage ? "bg-forest-600 text-white hover:bg-forest-700" : "bg-white/20 text-white hover:bg-white/30 border border-white/40")}>
+              ),
+              gallery: (label) => <Link to="/gallery" className={linkClass}>{label}</Link>,
+              contact: (label) => <Link to="/contact" className={linkClass}>{label}</Link>,
+              schedules: (label) => (
+                <button onClick={handleScheduleDownload} className={scheduleClass}>
                   <Download size={16} />
-                  Download Schedules
+                  {label}
                 </button>
-              </li>}
-          </ul>
+              ),
+            };
+
+            return (
+              <ul className="hidden lg:flex items-center flex-1 justify-evenly gap-4 ml-12">
+                {settingsLoaded && navItems
+                  .filter(item => item.is_visible && desktopRenderers[item.nav_key])
+                  .map(item => (
+                    <li key={item.nav_key}>{desktopRenderers[item.nav_key](item.label)}</li>
+                  ))}
+              </ul>
+            );
+          })()}
 
           {/* Profile dropdown (desktop) - only when signed in */}
           <div className="flex items-center gap-3">
@@ -340,100 +341,88 @@ const Navbar = () => {
         </div>
 
         <div className={cn("lg:hidden absolute left-0 right-0 top-full px-4 py-2 transition-all duration-300 ease-in-out transform origin-top", mobileMenuOpen ? "opacity-100 scale-y-100" : "opacity-0 scale-y-0 pointer-events-none", "bg-white shadow-lg mt-2 rounded-lg")}>
-          <ul className="py-2 space-y-1">
-            {settingsLoaded && navSettings.home !== false && <li>
-                <Link to="/" className="block py-2 px-4 font-medium text-gray-800 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={() => setMobileMenuOpen(false)}>
-                  Home
-                </Link>
-              </li>}
-            {settingsLoaded && navSettings.announcements !== false && <li>
-                <Link to="/announcements" className="block py-2 px-4 font-medium text-gray-800 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={() => setMobileMenuOpen(false)}>
-                  Announcements
-                </Link>
-              </li>}
-            {/* About Submenu */}
-            {settingsLoaded && navSettings.about !== false && <li>
-                <button onClick={() => toggleMobileSection("about")} className="w-full flex items-center justify-between py-2 px-4 font-medium text-gray-800 hover:bg-gray-50 rounded-md">
-                  <span>About</span>
-                  <ChevronDown size={16} className={cn("transition-transform duration-200", mobileExpandedSection === "about" && "rotate-180")} />
-                </button>
-                <div className={cn("overflow-hidden transition-all duration-200", mobileExpandedSection === "about" ? "max-h-96 opacity-100" : "max-h-0 opacity-0")}>
-                  {programDropdowns.about.map(item => <Link key={item.path} to={item.path} className="block py-2 px-8 text-sm text-gray-700 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={() => setMobileMenuOpen(false)}>
-                      {item.name}
-                    </Link>)}
-                </div>
-              </li>}
+          {(() => {
+            const mobileLink = "block py-2 px-4 font-medium text-gray-800 hover:text-forest-600 hover:bg-gray-50 rounded-md";
+            const closeMenu = () => setMobileMenuOpen(false);
 
-            {/* Camps Submenu */}
-            {settingsLoaded && navSettings.camps !== false && <li>
-                <button onClick={() => toggleMobileSection("camps")} className="w-full flex items-center justify-between py-2 px-4 font-medium text-gray-800 hover:bg-gray-50 rounded-md">
-                  <span>Camps</span>
-                  <ChevronDown size={16} className={cn("transition-transform duration-200", mobileExpandedSection === "camps" && "rotate-180")} />
-                </button>
-                <div className={cn("overflow-hidden transition-all duration-200", mobileExpandedSection === "camps" ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0")}>
-                  {Object.entries(programDropdowns.camps).map(([category, items]) => <div key={category} className="ml-4 mb-2">
-                      <div className="px-4 py-1 text-xs font-semibold text-gray-500 uppercase">{category}</div>
-                      {items.map(item => <Link key={item.path} to={item.path} className="block py-2 px-8 text-sm text-gray-700 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={() => setMobileMenuOpen(false)}>
-                          {item.name}
-                        </Link>)}
-                    </div>)}
-                </div>
-              </li>}
+            const mobileRenderers: Record<string, (label: string) => React.ReactNode> = {
+              home: (label) => <Link to="/" className={mobileLink} onClick={closeMenu}>{label}</Link>,
+              announcements: (label) => <Link to="/announcements" className={mobileLink} onClick={closeMenu}>{label}</Link>,
+              about: (label) => <Link to="/about" className={mobileLink} onClick={closeMenu}>{label}</Link>,
+              camp: (label) => <Link to="/camp" className={mobileLink} onClick={closeMenu}>{label}</Link>,
+              programs: (label) => <Link to="/programs" className={mobileLink} onClick={closeMenu}>{label}</Link>,
 
-            {/* Experiences */}
-            {settingsLoaded && navSettings.experiences !== false && <li>
-                <Link to="/experiences/kenyan-experiences" className="block py-2 px-4 font-medium text-gray-800 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={() => setMobileMenuOpen(false)}>
-                  Experiences
-                </Link>
-              </li>}
-
-            {/* Schools Submenu */}
-            {settingsLoaded && navSettings.schools !== false && <li>
-                <button onClick={() => toggleMobileSection("schools")} className="w-full flex items-center justify-between py-2 px-4 font-medium text-gray-800 hover:bg-gray-50 rounded-md">
-                  <span>Schools</span>
-                  <ChevronDown size={16} className={cn("transition-transform duration-200", mobileExpandedSection === "schools" && "rotate-180")} />
-                </button>
-                <div className={cn("overflow-hidden transition-all duration-200", mobileExpandedSection === "schools" ? "max-h-96 opacity-100" : "max-h-0 opacity-0")}>
-                  {programDropdowns.schools.map(item => <Link key={item.path} to={item.path} className="block py-2 px-8 text-sm text-gray-700 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={() => setMobileMenuOpen(false)}>
-                      {item.name}
-                    </Link>)}
-                </div>
-              </li>}
-
-            {/* Group Activities Submenu */}
-            {settingsLoaded && navSettings.groups !== false && <li>
-                <button onClick={() => toggleMobileSection("groups")} className="w-full flex items-center justify-between py-2 px-4 font-medium text-gray-800 hover:bg-gray-50 rounded-md">
-                  <span>Group Activities</span>
-                  <ChevronDown size={16} className={cn("transition-transform duration-200", mobileExpandedSection === "groups" && "rotate-180")} />
-                </button>
-                <div className={cn("overflow-hidden transition-all duration-200", mobileExpandedSection === "groups" ? "max-h-96 opacity-100" : "max-h-0 opacity-0")}>
-                  {programDropdowns.groups.map(item => <Link key={item.path} to={item.path} className="block py-2 px-8 text-sm text-gray-700 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={() => setMobileMenuOpen(false)}>
-                      {item.name}
-                    </Link>)}
-                </div>
-              </li>}
-
-            {settingsLoaded && navSettings.gallery !== false && <li>
-                <Link to="/gallery" className="block py-2 px-4 font-medium text-gray-800 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={() => setMobileMenuOpen(false)}>
-                  Gallery
-                </Link>
-              </li>}
-
-            {settingsLoaded && navSettings.contact !== false && <li>
-                <Link to="/contact" className="block py-2 px-4 font-medium text-gray-800 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={() => setMobileMenuOpen(false)}>
-                  Contact
-                </Link>
-              </li>}
-
-            {settingsLoaded && navSettings.schedules !== false && <li>
-                <button onClick={() => {
-              handleScheduleDownload();
-              setMobileMenuOpen(false);
-            }} className="w-full flex items-center justify-center gap-2 py-2 px-4 font-medium text-white bg-forest-600 hover:bg-forest-700 rounded-md">
+              camps: (label) => (
+                <>
+                  <button onClick={() => toggleMobileSection("camps")} className="w-full flex items-center justify-between py-2 px-4 font-medium text-gray-800 hover:bg-gray-50 rounded-md">
+                    <span>{label}</span>
+                    <ChevronDown size={16} className={cn("transition-transform duration-200", mobileExpandedSection === "camps" && "rotate-180")} />
+                  </button>
+                  <div className={cn("overflow-hidden transition-all duration-200", mobileExpandedSection === "camps" ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0")}>
+                    {Object.entries(programDropdowns.camps).map(([category, items]) => (
+                      <div key={category} className="ml-4 mb-2">
+                        <div className="px-4 py-1 text-xs font-semibold text-gray-500 uppercase">{category}</div>
+                        {items.map(item => (
+                          <Link key={item.path} to={item.path} className="block py-2 px-8 text-sm text-gray-700 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={closeMenu}>
+                            {item.name}
+                          </Link>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ),
+              experiences: (label) => <Link to="/experiences/kenyan-experiences" className={mobileLink} onClick={closeMenu}>{label}</Link>,
+              schools: (label) => (
+                <>
+                  <button onClick={() => toggleMobileSection("schools")} className="w-full flex items-center justify-between py-2 px-4 font-medium text-gray-800 hover:bg-gray-50 rounded-md">
+                    <span>{label}</span>
+                    <ChevronDown size={16} className={cn("transition-transform duration-200", mobileExpandedSection === "schools" && "rotate-180")} />
+                  </button>
+                  <div className={cn("overflow-hidden transition-all duration-200", mobileExpandedSection === "schools" ? "max-h-96 opacity-100" : "max-h-0 opacity-0")}>
+                    {programDropdowns.schools.map(item => (
+                      <Link key={item.path} to={item.path} className="block py-2 px-8 text-sm text-gray-700 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={closeMenu}>
+                        {item.name}
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              ),
+              groups: (label) => (
+                <>
+                  <button onClick={() => toggleMobileSection("groups")} className="w-full flex items-center justify-between py-2 px-4 font-medium text-gray-800 hover:bg-gray-50 rounded-md">
+                    <span>{label}</span>
+                    <ChevronDown size={16} className={cn("transition-transform duration-200", mobileExpandedSection === "groups" && "rotate-180")} />
+                  </button>
+                  <div className={cn("overflow-hidden transition-all duration-200", mobileExpandedSection === "groups" ? "max-h-96 opacity-100" : "max-h-0 opacity-0")}>
+                    {programDropdowns.groups.map(item => (
+                      <Link key={item.path} to={item.path} className="block py-2 px-8 text-sm text-gray-700 hover:text-forest-600 hover:bg-gray-50 rounded-md" onClick={closeMenu}>
+                        {item.name}
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              ),
+              gallery: (label) => <Link to="/gallery" className={mobileLink} onClick={closeMenu}>{label}</Link>,
+              contact: (label) => <Link to="/contact" className={mobileLink} onClick={closeMenu}>{label}</Link>,
+              schedules: (label) => (
+                <button
+                  onClick={() => { handleScheduleDownload(); closeMenu(); }}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-4 font-medium text-white bg-forest-600 hover:bg-forest-700 rounded-md"
+                >
                   <Download size={16} />
-                  Download Schedules
+                  {label}
                 </button>
-              </li>}
+              ),
+            };
+
+            return (
+              <ul className="py-2 space-y-1">
+                {settingsLoaded && navItems
+                  .filter(item => item.is_visible && mobileRenderers[item.nav_key])
+                  .map(item => (
+                    <li key={item.nav_key}>{mobileRenderers[item.nav_key](item.label)}</li>
+                  ))}
 
             {/* Mobile Profile Section - only when signed in */}
             {!authLoading && isSignedIn && clientProfile && (
@@ -467,7 +456,9 @@ const Navbar = () => {
                 </div>
               </li>
             )}
-          </ul>
+              </ul>
+            );
+          })()}
         </div>
       </div>
     </nav>;

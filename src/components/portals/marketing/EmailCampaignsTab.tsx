@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, Send, Users, Loader2, Plus, X, Search, RotateCcw, Trash2 } from "lucide-react";
+import { Mail, Send, Users, Loader2, Plus, X, Search, RotateCcw, Trash2, Clock, CalendarClock, Ban, FileText, Save, BookTemplate } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { emailManagementService, EmailSegment } from "@/services/emailManagementService";
+import { emailManagementService, EmailSegment, EmailTemplate } from "@/services/emailManagementService";
 import RichTextEditor from "@/components/content/RichTextEditor";
+import EmailTemplatesDialog from "./EmailTemplatesDialog";
 
 interface CampaignRow {
   id: string;
@@ -22,6 +23,10 @@ interface CampaignRow {
   failed_count: number | null;
   sent_at: string | null;
   created_at: string;
+  scheduled_for?: string | null;
+  send_window_start_hour?: number | null;
+  send_window_end_hour?: number | null;
+  dispatch_error?: string | null;
 }
 
 interface Recipient {
@@ -55,6 +60,26 @@ const EmailCampaignsTab: React.FC = () => {
   const [composeTab, setComposeTab] = useState<"edit" | "preview">("edit");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  // Scheduling
+  const [sendMode, setSendMode] = useState<"now" | "schedule">("now");
+  const [scheduleDate, setScheduleDate] = useState<string>(""); // yyyy-mm-dd
+  const [scheduleTime, setScheduleTime] = useState<string>("09:00"); // HH:MM (EAT)
+  const [useWindow, setUseWindow] = useState(false);
+  const [windowStart, setWindowStart] = useState<string>("9");
+  const [windowEnd, setWindowEnd] = useState<string>("17");
+  const [scheduling, setScheduling] = useState(false);
+
+  // Templates
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+  const reloadTemplates = async () => {
+    const list = await emailManagementService.getEmailTemplates();
+    setTemplates(list);
+  };
 
   const loadAll = async () => {
     setLoading(true);
@@ -69,7 +94,40 @@ const EmailCampaignsTab: React.FC = () => {
 
   useEffect(() => {
     loadAll();
+    reloadTemplates();
   }, []);
+
+  const applyTemplate = (tpl: EmailTemplate) => {
+    setSubject(tpl.subject || "");
+    setBodyHtml(tpl.body_html || "");
+    if (tpl.from_name) setFromName(tpl.from_name);
+    toast({ title: "Template loaded", description: tpl.name });
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!subject.trim() || !bodyHtml.trim() || bodyHtml === "<p><br></p>") {
+      toast({ title: "Nothing to save", description: "Add a subject and body first.", variant: "destructive" });
+      return;
+    }
+    const defaultName = name?.trim() || subject.trim().slice(0, 60);
+    const tplName = window.prompt("Template name", defaultName);
+    if (!tplName || !tplName.trim()) return;
+    setSavingTemplate(true);
+    const res = await emailManagementService.saveEmailTemplate({
+      name: tplName.trim(),
+      subject,
+      body_html: bodyHtml,
+      from_name: fromName,
+      category: "general",
+    });
+    setSavingTemplate(false);
+    if (!res.success) {
+      toast({ title: "Save failed", description: res.error, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Template saved", description: tplName });
+    reloadTemplates();
+  };
 
   // Resolve recipients whenever segment changes
   useEffect(() => {
@@ -102,6 +160,23 @@ const EmailCampaignsTab: React.FC = () => {
     setNewEmail("");
     setTestEmail("");
     setComposeTab("edit");
+    setSendMode("now");
+    setScheduleDate("");
+    setScheduleTime("09:00");
+    setUseWindow(false);
+    setWindowStart("9");
+    setWindowEnd("17");
+  };
+
+  // Build a UTC ISO timestamp from a date + time the user picked in EAT (UTC+3).
+  const buildScheduledForUtc = (): string | null => {
+    if (!scheduleDate || !scheduleTime) return null;
+    const [hh, mm] = scheduleTime.split(":").map((n) => parseInt(n, 10));
+    if (isNaN(hh) || isNaN(mm)) return null;
+    const [y, mo, d] = scheduleDate.split("-").map((n) => parseInt(n, 10));
+    // EAT is UTC+3 with no DST, so the UTC instant is (local - 3h).
+    const utc = new Date(Date.UTC(y, mo - 1, d, hh - 3, mm, 0));
+    return utc.toISOString();
   };
 
   const filteredRecipients = useMemo(() => {
@@ -209,12 +284,83 @@ const EmailCampaignsTab: React.FC = () => {
     }
   };
 
+  const handleScheduleBlast = async () => {
+    const err = validate();
+    if (err) {
+      toast({ title: "Missing info", description: err, variant: "destructive" });
+      return;
+    }
+    const scheduledForUtc = buildScheduledForUtc();
+    if (!scheduledForUtc) {
+      toast({ title: "Pick a date and time", description: "Choose when to send (EAT)", variant: "destructive" });
+      return;
+    }
+    if (new Date(scheduledForUtc).getTime() <= Date.now()) {
+      toast({ title: "Time is in the past", description: "Pick a future date/time (EAT)", variant: "destructive" });
+      return;
+    }
+    let ws: number | null = null;
+    let we: number | null = null;
+    if (useWindow) {
+      ws = parseInt(windowStart, 10);
+      we = parseInt(windowEnd, 10);
+      if (isNaN(ws) || isNaN(we) || ws < 0 || ws > 23 || we < 0 || we > 23) {
+        toast({ title: "Invalid send window", description: "Hours must be 0–23", variant: "destructive" });
+        return;
+      }
+    }
+
+    const when = new Date(scheduledForUtc).toLocaleString("en-KE", { timeZone: "Africa/Nairobi" });
+    if (!confirm(`Schedule "${subject}" to ${recipients.length} recipients on ${when} (EAT)?`)) return;
+
+    setScheduling(true);
+    try {
+      const created = await emailManagementService.createCampaign({
+        name,
+        subject,
+        body_html: bodyHtml,
+        from_name: fromName,
+        segment_id: segmentId,
+        recipient_count: recipients.length,
+        scheduled_for: scheduledForUtc,
+        send_window_start_hour: ws,
+        send_window_end_hour: we,
+        recipients_snapshot: recipients.map((r) => r.email),
+      });
+      if (!created) throw new Error("Could not schedule campaign");
+      toast({ title: "Scheduled", description: `Will send around ${when} (EAT)` });
+      setComposeOpen(false);
+      resetCompose();
+      loadAll();
+    } catch (e: any) {
+      toast({ title: "Schedule failed", description: e?.message || "Could not schedule", variant: "destructive" });
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const handleCancelScheduled = async (c: CampaignRow) => {
+    if (!confirm(`Cancel scheduled campaign "${c.name}"?`)) return;
+    setCancellingId(c.id);
+    const result = await emailManagementService.cancelScheduledCampaign(c.id);
+    setCancellingId(null);
+    if (!result.success) {
+      toast({ title: "Cancel failed", description: result.error || "Try again", variant: "destructive" });
+    } else {
+      toast({ title: "Scheduled send cancelled" });
+      loadAll();
+    }
+  };
+
   const statusBadge = (s: string) => {
     const map: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
       completed: "default",
       active: "default",
       planning: "secondary",
       paused: "outline",
+      scheduled: "secondary",
+      cancelled: "outline",
+      failed: "destructive",
     };
     return <Badge variant={map[s] || "outline"}>{s}</Badge>;
   };
@@ -289,6 +435,11 @@ const EmailCampaignsTab: React.FC = () => {
           <h2 className="text-2xl font-bold">Email Campaigns</h2>
           <p className="text-muted-foreground">Compose and send marketing email blasts to saved segments</p>
         </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setTemplatesOpen(true)}>
+            <FileText className="h-4 w-4 mr-2" />
+            Templates
+          </Button>
         <Dialog
           open={composeOpen}
           onOpenChange={(o) => {
@@ -331,6 +482,58 @@ const EmailCampaignsTab: React.FC = () => {
                   placeholder="e.g. Easter Camp registration is open!"
                 />
               </div>
+
+              {/* Templates: load + save + manage */}
+              <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <BookTemplate className="h-4 w-4 text-muted-foreground" />
+                  Reusable templates
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2">
+                  <Select
+                    value=""
+                    onValueChange={(id) => {
+                      const tpl = templates.find((t) => t.id === id);
+                      if (tpl) applyTemplate(tpl);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={templates.length ? "Load a template…" : "No templates saved yet"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.length === 0 && (
+                        <div className="px-2 py-3 text-sm text-muted-foreground">
+                          No templates yet — save one below
+                        </div>
+                      )}
+                      {templates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          <span className="font-medium">{t.name}</span>
+                          {t.category && (
+                            <span className="ml-2 text-xs text-muted-foreground capitalize">· {t.category}</span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" onClick={handleSaveAsTemplate} disabled={savingTemplate}>
+                    {savingTemplate ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Save className="h-3 w-3 mr-1" />
+                    )}
+                    Save as template
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setTemplatesOpen(true)}>
+                    <FileText className="h-3 w-3 mr-1" />
+                    Manage
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Loading a template fills subject, body and from-name. You can still tweak everything before sending.
+                </p>
+              </div>
+
 
               <div>
                 <Label htmlFor="seg">Audience Segment</Label>
@@ -493,19 +696,103 @@ const EmailCampaignsTab: React.FC = () => {
                 </div>
               </div>
 
+              {/* Scheduling */}
+              <div className="border rounded-lg p-3 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                  When to send
+                </div>
+                <Tabs value={sendMode} onValueChange={(v) => setSendMode(v as "now" | "schedule")}>
+                  <TabsList>
+                    <TabsTrigger value="now">Send now</TabsTrigger>
+                    <TabsTrigger value="schedule">Schedule</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="schedule" className="mt-3 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div>
+                        <Label htmlFor="sdate" className="text-xs">Date (EAT)</Label>
+                        <Input
+                          id="sdate"
+                          type="date"
+                          value={scheduleDate}
+                          onChange={(e) => setScheduleDate(e.target.value)}
+                          min={new Date().toISOString().slice(0, 10)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="stime" className="text-xs">Time (EAT, 24h)</Label>
+                        <Input
+                          id="stime"
+                          type="time"
+                          value={scheduleTime}
+                          onChange={(e) => setScheduleTime(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <input
+                        id="usewin"
+                        type="checkbox"
+                        checked={useWindow}
+                        onChange={(e) => setUseWindow(e.target.checked)}
+                      />
+                      <Label htmlFor="usewin" className="text-xs cursor-pointer">
+                        Only dispatch within a send window (EAT)
+                      </Label>
+                    </div>
+                    {useWindow && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label htmlFor="wstart" className="text-xs">From (hour 0–23)</Label>
+                          <Input id="wstart" type="number" min={0} max={23} value={windowStart} onChange={(e) => setWindowStart(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label htmlFor="wend" className="text-xs">To (hour 0–23)</Label>
+                          <Input id="wend" type="number" min={0} max={23} value={windowEnd} onChange={(e) => setWindowEnd(e.target.value)} />
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Dispatcher checks every 5 minutes. If the scheduled time falls outside the send window, it waits for the next window.
+                    </p>
+                  </TabsContent>
+                </Tabs>
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setComposeOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSendBlast} disabled={sending || recipients.length === 0}>
-                  {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                  Send to {recipients.length}
-                </Button>
+                {sendMode === "now" ? (
+                  <Button onClick={handleSendBlast} disabled={sending || recipients.length === 0}>
+                    {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                    Send to {recipients.length}
+                  </Button>
+                ) : (
+                  <Button onClick={handleScheduleBlast} disabled={scheduling || recipients.length === 0}>
+                    {scheduling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Clock className="h-4 w-4 mr-2" />}
+                    Schedule for {recipients.length}
+                  </Button>
+                )}
               </div>
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      <EmailTemplatesDialog
+        open={templatesOpen}
+        onOpenChange={(o) => {
+          setTemplatesOpen(o);
+          if (!o) reloadTemplates();
+        }}
+        onUseTemplate={(tpl) => {
+          if (!composeOpen) setComposeOpen(true);
+          applyTemplate(tpl);
+        }}
+        seed={{ subject, body_html: bodyHtml, from_name: fromName }}
+      />
 
       {loading ? (
         <div className="text-center py-8">Loading…</div>
@@ -526,6 +813,23 @@ const EmailCampaignsTab: React.FC = () => {
                   <CardTitle className="text-lg">{c.name}</CardTitle>
                   <div className="flex items-center gap-2 shrink-0">
                     {statusBadge(c.status)}
+                    {c.status === "scheduled" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleCancelScheduled(c)}
+                        disabled={cancellingId === c.id}
+                        aria-label="Cancel scheduled send"
+                        title="Cancel scheduled send"
+                      >
+                        {cancellingId === c.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Ban className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -560,12 +864,29 @@ const EmailCampaignsTab: React.FC = () => {
                     <div className="text-xs text-muted-foreground">Failed</div>
                   </div>
                 </div>
+                {c.status === "scheduled" && c.scheduled_for && (
+                  <p className="text-xs mt-3 flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                    <Clock className="h-3 w-3" />
+                    Scheduled for{" "}
+                    {new Date(c.scheduled_for).toLocaleString("en-KE", { timeZone: "Africa/Nairobi" })} (EAT)
+                    {c.send_window_start_hour != null && c.send_window_end_hour != null && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · window {String(c.send_window_start_hour).padStart(2, "0")}:00–
+                        {String(c.send_window_end_hour).padStart(2, "0")}:00
+                      </span>
+                    )}
+                  </p>
+                )}
+                {c.status === "failed" && c.dispatch_error && (
+                  <p className="text-xs mt-3 text-destructive">Dispatch failed: {c.dispatch_error}</p>
+                )}
                 <p className="text-xs text-muted-foreground mt-3">
                   {c.sent_at
                     ? `Sent ${new Date(c.sent_at).toLocaleString()}`
                     : `Created ${new Date(c.created_at).toLocaleString()}`}
                 </p>
-                {(c.failed_count ?? 0) > 0 && c.status !== "active" && (
+                {(c.failed_count ?? 0) > 0 && c.status !== "active" && c.status !== "scheduled" && (
                   <Button
                     variant="outline"
                     size="sm"

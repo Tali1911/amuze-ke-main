@@ -162,8 +162,8 @@ const handler = async (req: Request): Promise<Response> => {
               <div>
                 <h3 style="color: #2d5016; margin: 0 0 10px 0;">From:</h3>
                 <p style="margin: 0;">Amuse Kenya</p>
-                <p style="margin: 0; color: #666;">Karura Forest, Gate F</p>
-                <p style="margin: 0; color: #666;">Thigiri Ridge, Nairobi</p>
+                <p style="margin: 0; color: #666;">Sigiria Karura Forest Gate F entrance</p>
+                <p style="margin: 0; color: #666;">(Sigiria coffee house), Nairobi</p>
                 <p style="margin: 0; color: #666;">info@amusekenya.co.ke</p>
               </div>
               <div style="text-align: right;">

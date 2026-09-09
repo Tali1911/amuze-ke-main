@@ -1,5 +1,5 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -87,6 +87,28 @@
 html, body {
   font-family: 'Inter', sans-serif;
 }
+
+/* Public site heading style: bold dark-green serif (excludes hero carousel and admin/portals) */
+body.is-public h1:not(.hero-heading):not(.no-serif),
+body.is-public h2:not(.hero-heading):not(.no-serif),
+body.is-public h3:not(.hero-heading):not(.no-serif) {
+  font-family: 'Playfair Display', Georgia, serif;
+  color: #2b4321; /* forest-900 */
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+/* Recolor forest/primary text helpers to forest-900 by default.
+   Uses standard specificity (no !important) so inline styles from the CMS
+   typography controls can override on a per-element basis. */
+body.is-public .text-primary,
+body.is-public .text-forest-700,
+body.is-public .text-forest-600,
+body.is-public .text-forest-500 {
+  color: #2b4321;
+}
+
 
 .glass-card {
   @apply backdrop-blur-lg bg-white/70 dark:bg-black/40 border border-white/20 shadow-md;

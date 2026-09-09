@@ -4,6 +4,7 @@ import { Session } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { auditLogService } from '@/services/auditLogService';
+import { getPublicBase } from '@/lib/publicUrl';
 
 interface AuthContextType {
   user: any | null;
@@ -204,7 +205,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/admin`,
+          redirectTo: `${getPublicBase()}/admin`,
         },
       });
       if (error) {
@@ -226,7 +227,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/admin`
+          emailRedirectTo: `${getPublicBase()}/admin`
         }
       });
 

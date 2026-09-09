@@ -26,6 +26,9 @@ export interface CampRegistration {
   registration_type: 'online_only' | 'online_paid' | 'ground_registration';
   qr_code_data: string;
   consent_given: boolean;
+  /** Parent/Guardian Permission (Participation) form accepted for this registration */
+  participation_consent_given?: boolean;
+  participation_consent_at?: string | null;
   status: 'active' | 'cancelled' | 'completed';
   location?: string;
   created_at?: string;

@@ -17,6 +17,7 @@ import EmailSuppressionsTab from './marketing/EmailSuppressionsTab';
 import UserEngagementTab from './marketing/UserEngagementTab';
 import SiteAnalyticsTab from './marketing/SiteAnalyticsTab';
 import RealTimeAnalytics from './marketing/RealTimeAnalytics';
+import AutomationsTab from './marketing/AutomationsTab';
 import ProfileEditor from '../profile/ProfileEditor';
 
 interface MarketingPortalProps {
@@ -34,6 +35,8 @@ const MarketingPortal: React.FC<MarketingPortalProps> = ({ activeTab }) => {
         return <ContentManagement />;
       case 'campaigns':
         return <EmailCampaignsTab />;
+      case 'automations':
+        return <AutomationsTab />;
       case 'analytics':
         return <AnalyticsDashboard />;
       case 'communication':

@@ -41,7 +41,7 @@ const Hero = () => {
           <span className="inline-block text-white bg-forest-500/80 backdrop-blur-sm px-4 py-1 rounded-full text-sm font-medium uppercase tracking-wider mb-6">
             Adventure Awaits
           </span>
-          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 drop-shadow-md text-balance">
+          <h1 className="hero-heading text-5xl md:text-7xl font-bold text-white mb-6 drop-shadow-md text-balance">
             {getHeading("Forest Adventures at Amuse Kenya")}
           </h1>
           <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto mb-8 drop-shadow-md">

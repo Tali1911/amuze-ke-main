@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { cmsService } from '@/services/cmsService';
-import MediaUploader from './MediaUploader';
-import { PartiesPageConfig, PartyOption, AddOn } from '@/hooks/usePartiesPageConfig';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import React, { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { cmsService } from "@/services/cmsService";
+import MediaUploader from "./MediaUploader";
+import { PartiesPageConfig, PartyOption, AddOn } from "@/hooks/usePartiesPageConfig";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PartiesPageEditorProps {
   isOpen: boolean;
@@ -20,123 +20,123 @@ interface PartiesPageEditorProps {
 }
 
 const defaultConfig: PartiesPageConfig = {
-  title: 'Parties & Celebrations',
-  subtitle: 'Customised parties and team-building events with a focus on fun and tangible outcomes.',
-  description: 'Make your special occasion extraordinary! Our outdoor party packages combine nature, adventure, and celebration for birthday parties, family gatherings, and group events.',
-  featuredMediaUrl: '',
-  mediaType: 'photo',
+  title: "Parties & Celebrations",
+  subtitle: "Customised parties and team-building events with a focus on fun and tangible outcomes.",
+  description:
+    "Make your special occasion extraordinary! Our outdoor party packages combine nature, adventure, and celebration for birthday parties, family gatherings, and group events.",
+  featuredMediaUrl: "",
+  mediaType: "photo",
   partyOptions: [
     {
-      id: 'karura-forest',
-      title: 'Come to Karura Forest',
-      icon: 'TreePine',
-      shortDescription: 'Bring your child to Karura, where most of our outdoor adventures happens!',
-      fullDescription: 'Bring your child to Karura, where most of our outdoor adventures happens! Here, your child and their friends will enjoy adventure activities, bushcraft, creative outdoor play, and more—all in a safe, supervised environment with trained facilitators.',
+      id: "karura-forest",
+      title: "Come to Karura Forest",
+      icon: "TreePine",
+      shortDescription: "Bring your child to Karura, where most of our outdoor adventures happens!",
+      fullDescription:
+        "Bring your child to Karura, where most of our outdoor adventures happens! Here, your child and their friends will enjoy adventure activities, bushcraft, creative outdoor play, and more—all in a safe, supervised environment with trained facilitators.",
       features: [
-        'Adventure activities like obstacle courses, rope course, nature scavenger hunts',
-        'Bushcraft and creative outdoor play',
-        'Safe, supervised fun with trained facilitators',
-        'Custom themes and setups to make the day extra special'
+        "Adventure activities like obstacle courses, rope course, nature scavenger hunts",
+        "Bushcraft and creative outdoor play",
+        "Safe, supervised fun with trained facilitators",
+        "Custom themes and setups to make the day extra special",
       ],
-      idealFor: 'Perfect for children of all ages who love nature, movement, and exploration.',
-      note: 'In line with forest guidelines, no single-use plastics are allowed.'
+      idealFor: "Perfect for children of all ages who love nature, movement, and exploration.",
+      note: "In line with forest guidelines, no single-use plastics are allowed.",
     },
     {
-      id: 'we-come-to-you',
-      title: 'We Come to You',
-      icon: 'Home',
-      shortDescription: 'No need to travel—we can bring the adventure to your chosen location!',
-      fullDescription: 'No need to travel—we can bring the adventure to your chosen location! Our team sets up fun, engaging, and safe outdoor activities wherever you are.',
+      id: "we-come-to-you",
+      title: "We Come to You",
+      icon: "Home",
+      shortDescription: "No need to travel—we can bring the adventure to your chosen location!",
+      fullDescription:
+        "No need to travel—we can bring the adventure to your chosen location! Our team sets up fun, engaging, and safe outdoor activities wherever you are.",
       features: [
-        'Our team sets up fun, engaging, and safe outdoor activities wherever you are',
-        'Ideal for home gardens, schools, or community spaces',
-        'Activities can be customized for your child\'s age, interests, and group size',
-        'Full facilitation and equipment provided'
+        "Our team sets up fun, engaging, and safe outdoor activities wherever you are",
+        "Ideal for home gardens, schools, or community spaces",
+        "Activities can be customized for your child's age, interests, and group size",
+        "Full facilitation and equipment provided",
       ],
-      idealFor: 'Perfect for families looking for outdoor birthday parties without leaving home.'
+      idealFor: "Perfect for families looking for outdoor birthday parties without leaving home.",
     },
     {
-      id: 'overnight-camping',
-      title: 'Overnight Camping (Preteens & Teens)',
-      icon: 'Moon',
-      shortDescription: 'Take your child\'s birthday to the next level with an immersive overnight adventure.',
-      fullDescription: 'Take your child\'s birthday to the next level with an immersive overnight adventure.',
+      id: "overnight-camping",
+      title: "Overnight Camping (Preteens & Teens)",
+      icon: "Moon",
+      shortDescription: "Take your child's birthday to the next level with an immersive overnight adventure.",
+      fullDescription: "Take your child's birthday to the next level with an immersive overnight adventure.",
       features: [
-        'Sleep in spacious tents and enjoy hands-on adventure activities',
-        'Bond with friends through night activities, campfire stories, and outdoor movie nights',
-        'Build life skills including independence, teamwork, resilience'
+        "Sleep in spacious tents and enjoy hands-on adventure activities",
+        "Bond with friends through night activities, campfire stories, and outdoor movie nights",
+        "Build life skills including independence, teamwork, resilience",
       ],
-      idealFor: 'Perfect for preteens and teenagers seeking a memorable celebration.'
-    }
+      idealFor: "Perfect for preteens and teenagers seeking a memorable celebration.",
+    },
   ],
   details: {
-    partyTypes: 'Birthdays, anniversaries, reunions',
-    groupSize: '10-50 guests',
-    duration: 'Half-day / Full-day / Overnight',
-    location: 'Our center or your choice'
+    partyTypes: "Birthdays, anniversaries, reunions",
+    groupSize: "10-50 guests",
+    duration: "Half-day / Full-day / Overnight",
+    location: "Our center or your choice",
   },
   whatsIncluded: [
-    'Customized party themes',
-    'Outdoor adventure activities',
-    'Party games and entertainment',
-    'Dedicated party area',
-    'Basic decorations and setup',
-    'Professional event coordination',
-    'Photography opportunities',
-    'Age-appropriate activities',
-    'Safety equipment and supervision',
-    'Flexible catering options'
+    "Customized party themes",
+    "Outdoor adventure activities",
+    "Party games and entertainment",
+    "Dedicated party area",
+    "Basic decorations and setup",
+    "Professional event coordination",
+    "Photography opportunities",
+    "Age-appropriate activities",
+    "Safety equipment and supervision",
+    "Flexible catering options",
   ],
   addOns: [
-    { icon: 'Cake', text: 'Custom cake and catering services' },
-    { icon: 'Camera', text: 'Professional photography package' },
-    { icon: 'Star', text: 'Special activity sessions (rock climbing, kayaking)' },
-    { icon: 'Gift', text: 'Party favors and gift bags' }
+    { icon: "Cake", text: "Custom cake and catering services" },
+    { icon: "Camera", text: "Professional photography package" },
+    { icon: "Star", text: "Special activity sessions (rock climbing, kayaking)" },
+    { icon: "Gift", text: "Party favors and gift bags" },
   ],
   formConfig: {
-    formTitle: 'Book Your Party',
-    ctaText: 'Book Party',
+    formTitle: "Book Your Party",
+    ctaText: "Book Party",
     fields: {
-      occasion: { label: 'Occasion', placeholder: 'Select occasion' },
-      parentName: { label: 'Organizer Name', placeholder: 'Enter your full name' },
-      childName: { label: 'Child Name', placeholder: 'Enter child\'s full name' },
-      dateOfBirth: { label: 'Date of Birth', placeholder: 'Select date' },
-      specialNeeds: { label: 'Special/Medical Needs', placeholder: 'Allergies, medical conditions, etc.' },
-      guestsNumber: { label: 'Number of Guests', placeholder: 'Total number of guests (10-50)' },
-      packageType: { label: 'Package Type', placeholder: 'Select package' },
-      eventTiming: { label: 'Event Timing', placeholder: 'Select timing' },
-      eventDate: { label: 'Event Date', placeholder: 'Select date' },
-      startTime: { label: 'Start Time', placeholder: 'e.g., 09:00' },
-      endTime: { label: 'End Time', placeholder: 'e.g., 14:00' },
-      location: { label: 'Location', placeholder: 'Select location' },
-      decor: { label: 'Enhanced Decoration Package' },
-      catering: { label: 'Catering Services' },
-      photography: { label: 'Professional Photography' },
-      activities: { label: 'Special Activities' },
-      email: { label: 'Email Address', placeholder: 'your@email.com' },
-      phone: { label: 'Phone Number', placeholder: '+254 700 000 000' }
+      occasion: { label: "Occasion", placeholder: "Select occasion" },
+      parentName: { label: "Organizer Name", placeholder: "Enter your full name" },
+      childName: { label: "Child Name", placeholder: "Enter child's full name" },
+      dateOfBirth: { label: "Date of Birth", placeholder: "Select date" },
+      specialNeeds: { label: "Special/Medical Needs", placeholder: "Allergies, medical conditions, etc." },
+      guestsNumber: { label: "Number of Guests", placeholder: "Total number of guests (10-50)" },
+      packageType: { label: "Package Type", placeholder: "Select package" },
+      eventTiming: { label: "Event Timing", placeholder: "Select timing" },
+      eventDate: { label: "Event Date", placeholder: "Select date" },
+      startTime: { label: "Start Time", placeholder: "e.g., 09:00" },
+      endTime: { label: "End Time", placeholder: "e.g., 14:00" },
+      location: { label: "Location", placeholder: "Select location" },
+      decor: { label: "Enhanced Decoration Package" },
+      catering: { label: "Catering Services" },
+      photography: { label: "Professional Photography" },
+      activities: { label: "Special Activities" },
+      email: { label: "Email Address", placeholder: "your@email.com" },
+      phone: { label: "Phone Number", placeholder: "+254 114 705763" },
     },
     buttons: {
-      submit: 'Book Party',
-      addChild: 'Add Child',
-      removeChild: 'Remove',
-      back: 'Back to Home'
+      submit: "Book Party",
+      addChild: "Add Child",
+      removeChild: "Remove",
+      back: "Back to Home",
     },
     messages: {
-      successMessage: 'Party booking submitted successfully! We\'ll contact you shortly.',
-      errorMessage: 'Failed to submit booking. Please try again.',
-      loadingMessage: 'Submitting...'
-    }
+      successMessage: "Party booking submitted successfully! We'll contact you shortly.",
+      errorMessage: "Failed to submit booking. Please try again.",
+      loadingMessage: "Submitting...",
+    },
   },
-  metaTitle: 'Parties & Celebrations | Amuse Kenya Forest Adventures',
-  metaDescription: 'Host unforgettable birthday parties and celebrations at Karura Forest, at your venue, or as an overnight camping experience.'
+  metaTitle: "Parties & Celebrations | Amuse Kenya Forest Adventures",
+  metaDescription:
+    "Host unforgettable birthday parties and celebrations at Karura Forest, at your venue, or as an overnight camping experience.",
 };
 
-export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({ 
-  isOpen, 
-  onClose, 
-  onSave 
-}) => {
+export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({ isOpen, onClose, onSave }) => {
   const [config, setConfig] = useState<PartiesPageConfig>(defaultConfig);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -151,7 +151,7 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
   const loadConfig = async () => {
     setIsLoading(true);
     try {
-      const content = await cmsService.getContentBySlug('parties-page', 'experience_page');
+      const content = await cmsService.getContentBySlug("parties-page", "experience_page");
       if (content) {
         setExistingId(content.id);
         if (content.metadata?.pageConfig) {
@@ -159,7 +159,7 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
         }
       }
     } catch (error) {
-      console.error('Error loading parties config:', error);
+      console.error("Error loading parties config:", error);
     } finally {
       setIsLoading(false);
     }
@@ -168,14 +168,14 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await cmsService.updateExperiencePageConfig('parties', { pageConfig: config });
-      window.dispatchEvent(new CustomEvent('cms-content-updated'));
-      toast.success('Parties page saved successfully');
+      await cmsService.updateExperiencePageConfig("parties", { pageConfig: config });
+      window.dispatchEvent(new CustomEvent("cms-content-updated"));
+      toast.success("Parties page saved successfully");
       await onSave();
       onClose();
     } catch (error) {
-      console.error('Error saving parties config:', error);
-      toast.error('Failed to save changes');
+      console.error("Error saving parties config:", error);
+      toast.error("Failed to save changes");
     } finally {
       setIsSaving(false);
     }
@@ -190,94 +190,90 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
           ...config.formConfig.fields,
           [fieldKey]: {
             ...config.formConfig.fields[fieldKey],
-            [property]: value
-          }
-        }
-      }
+            [property]: value,
+          },
+        },
+      },
     });
   };
 
   const addIncludedItem = () => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      whatsIncluded: [...prev.whatsIncluded, '']
+      whatsIncluded: [...prev.whatsIncluded, ""],
     }));
   };
 
   const updateIncludedItem = (index: number, value: string) => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      whatsIncluded: prev.whatsIncluded.map((item, i) => i === index ? value : item)
+      whatsIncluded: prev.whatsIncluded.map((item, i) => (i === index ? value : item)),
     }));
   };
 
   const removeIncludedItem = (index: number) => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      whatsIncluded: prev.whatsIncluded.filter((_, i) => i !== index)
+      whatsIncluded: prev.whatsIncluded.filter((_, i) => i !== index),
     }));
   };
 
   const addAddOn = () => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      addOns: [...prev.addOns, { icon: 'Star', text: '' }]
+      addOns: [...prev.addOns, { icon: "Star", text: "" }],
     }));
   };
 
-  const updateAddOn = (index: number, field: 'icon' | 'text', value: string) => {
-    setConfig(prev => ({
+  const updateAddOn = (index: number, field: "icon" | "text", value: string) => {
+    setConfig((prev) => ({
       ...prev,
-      addOns: prev.addOns.map((item, i) => 
-        i === index ? { ...item, [field]: value } : item
-      )
+      addOns: prev.addOns.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
     }));
   };
 
   const removeAddOn = (index: number) => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      addOns: prev.addOns.filter((_, i) => i !== index)
+      addOns: prev.addOns.filter((_, i) => i !== index),
     }));
   };
 
   const updatePartyOption = (index: number, field: keyof PartyOption, value: any) => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      partyOptions: prev.partyOptions.map((opt, i) => 
-        i === index ? { ...opt, [field]: value } : opt
-      )
+      partyOptions: prev.partyOptions.map((opt, i) => (i === index ? { ...opt, [field]: value } : opt)),
     }));
   };
 
   const updatePartyOptionFeature = (optIndex: number, featIndex: number, value: string) => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
       partyOptions: prev.partyOptions.map((opt, i) => {
         if (i !== optIndex) return opt;
         const features = [...opt.features];
         features[featIndex] = value;
         return { ...opt, features };
-      })
+      }),
     }));
   };
 
   const addPartyOptionFeature = (optIndex: number) => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      partyOptions: prev.partyOptions.map((opt, i) => 
-        i === optIndex ? { ...opt, features: [...opt.features, ''] } : opt
-      )
+      partyOptions: prev.partyOptions.map((opt, i) =>
+        i === optIndex ? { ...opt, features: [...opt.features, ""] } : opt,
+      ),
     }));
   };
 
   const removePartyOptionFeature = (optIndex: number, featIndex: number) => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
       partyOptions: prev.partyOptions.map((opt, i) => {
         if (i !== optIndex) return opt;
         return { ...opt, features: opt.features.filter((_, fi) => fi !== featIndex) };
-      })
+      }),
     }));
   };
 
@@ -311,10 +307,7 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
           <TabsContent value="content" className="space-y-4">
             <div className="space-y-2">
               <Label>Page Title</Label>
-              <Input
-                value={config.title}
-                onChange={(e) => setConfig({ ...config, title: e.target.value })}
-              />
+              <Input value={config.title} onChange={(e) => setConfig({ ...config, title: e.target.value })} />
             </div>
 
             <div className="space-y-2">
@@ -355,40 +348,48 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                   <Label>Party Types</Label>
                   <Input
                     value={config.details.partyTypes}
-                    onChange={(e) => setConfig({
-                      ...config,
-                      details: { ...config.details, partyTypes: e.target.value }
-                    })}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        details: { ...config.details, partyTypes: e.target.value },
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Group Size</Label>
                   <Input
                     value={config.details.groupSize}
-                    onChange={(e) => setConfig({
-                      ...config,
-                      details: { ...config.details, groupSize: e.target.value }
-                    })}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        details: { ...config.details, groupSize: e.target.value },
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Duration</Label>
                   <Input
                     value={config.details.duration}
-                    onChange={(e) => setConfig({
-                      ...config,
-                      details: { ...config.details, duration: e.target.value }
-                    })}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        details: { ...config.details, duration: e.target.value },
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Location</Label>
                   <Input
                     value={config.details.location}
-                    onChange={(e) => setConfig({
-                      ...config,
-                      details: { ...config.details, location: e.target.value }
-                    })}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        details: { ...config.details, location: e.target.value },
+                      })
+                    }
                   />
                 </div>
               </CardContent>
@@ -408,15 +409,12 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                       <Label>Title</Label>
                       <Input
                         value={option.title}
-                        onChange={(e) => updatePartyOption(optIndex, 'title', e.target.value)}
+                        onChange={(e) => updatePartyOption(optIndex, "title", e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Icon</Label>
-                      <Select
-                        value={option.icon}
-                        onValueChange={(value) => updatePartyOption(optIndex, 'icon', value)}
-                      >
+                      <Select value={option.icon} onValueChange={(value) => updatePartyOption(optIndex, "icon", value)}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -435,7 +433,7 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                     <Label>Short Description</Label>
                     <Textarea
                       value={option.shortDescription}
-                      onChange={(e) => updatePartyOption(optIndex, 'shortDescription', e.target.value)}
+                      onChange={(e) => updatePartyOption(optIndex, "shortDescription", e.target.value)}
                       rows={2}
                     />
                   </div>
@@ -444,7 +442,7 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                     <Label>Full Description</Label>
                     <Textarea
                       value={option.fullDescription}
-                      onChange={(e) => updatePartyOption(optIndex, 'fullDescription', e.target.value)}
+                      onChange={(e) => updatePartyOption(optIndex, "fullDescription", e.target.value)}
                       rows={3}
                     />
                   </div>
@@ -462,11 +460,7 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                           value={feature}
                           onChange={(e) => updatePartyOptionFeature(optIndex, featIndex, e.target.value)}
                         />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removePartyOptionFeature(optIndex, featIndex)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => removePartyOptionFeature(optIndex, featIndex)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -477,15 +471,15 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                     <Label>Ideal For</Label>
                     <Input
                       value={option.idealFor}
-                      onChange={(e) => updatePartyOption(optIndex, 'idealFor', e.target.value)}
+                      onChange={(e) => updatePartyOption(optIndex, "idealFor", e.target.value)}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label>Note (optional)</Label>
                     <Input
-                      value={option.note || ''}
-                      onChange={(e) => updatePartyOption(optIndex, 'note', e.target.value)}
+                      value={option.note || ""}
+                      onChange={(e) => updatePartyOption(optIndex, "note", e.target.value)}
                     />
                   </div>
                 </CardContent>
@@ -509,11 +503,7 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                       onChange={(e) => updateIncludedItem(index, e.target.value)}
                       placeholder="Enter included item"
                     />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeIncludedItem(index)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => removeIncludedItem(index)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
@@ -531,10 +521,7 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
               <CardContent className="space-y-3">
                 {config.addOns.map((addon, index) => (
                   <div key={index} className="flex gap-2 items-center">
-                    <Select
-                      value={addon.icon}
-                      onValueChange={(value) => updateAddOn(index, 'icon', value)}
-                    >
+                    <Select value={addon.icon} onValueChange={(value) => updateAddOn(index, "icon", value)}>
                       <SelectTrigger className="w-32">
                         <SelectValue />
                       </SelectTrigger>
@@ -549,15 +536,11 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                     </Select>
                     <Input
                       value={addon.text}
-                      onChange={(e) => updateAddOn(index, 'text', e.target.value)}
+                      onChange={(e) => updateAddOn(index, "text", e.target.value)}
                       placeholder="Add-on description"
                       className="flex-1"
                     />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeAddOn(index)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => removeAddOn(index)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
@@ -577,20 +560,24 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                     <Label>Form Title</Label>
                     <Input
                       value={config.formConfig.formTitle}
-                      onChange={(e) => setConfig({
-                        ...config,
-                        formConfig: { ...config.formConfig, formTitle: e.target.value }
-                      })}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          formConfig: { ...config.formConfig, formTitle: e.target.value },
+                        })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Submit Button Text</Label>
                     <Input
                       value={config.formConfig.ctaText}
-                      onChange={(e) => setConfig({
-                        ...config,
-                        formConfig: { ...config.formConfig, ctaText: e.target.value }
-                      })}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          formConfig: { ...config.formConfig, ctaText: e.target.value },
+                        })
+                      }
                     />
                   </div>
                 </div>
@@ -605,18 +592,15 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                 {Object.entries(config.formConfig.fields).map(([key, field]) => (
                   <div key={key} className="grid grid-cols-2 gap-3 pb-3 border-b last:border-b-0">
                     <div className="space-y-1">
-                      <Label className="text-xs capitalize">{key.replace(/([A-Z])/g, ' $1').trim()} Label</Label>
-                      <Input
-                        value={field.label}
-                        onChange={(e) => updateFormField(key, 'label', e.target.value)}
-                      />
+                      <Label className="text-xs capitalize">{key.replace(/([A-Z])/g, " $1").trim()} Label</Label>
+                      <Input value={field.label} onChange={(e) => updateFormField(key, "label", e.target.value)} />
                     </div>
                     {field.placeholder !== undefined && (
                       <div className="space-y-1">
                         <Label className="text-xs">Placeholder</Label>
                         <Input
-                          value={field.placeholder || ''}
-                          onChange={(e) => updateFormField(key, 'placeholder', e.target.value)}
+                          value={field.placeholder || ""}
+                          onChange={(e) => updateFormField(key, "placeholder", e.target.value)}
                         />
                       </div>
                     )}
@@ -634,13 +618,15 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                   <Label>Success Message</Label>
                   <Textarea
                     value={config.formConfig.messages.successMessage}
-                    onChange={(e) => setConfig({
-                      ...config,
-                      formConfig: {
-                        ...config.formConfig,
-                        messages: { ...config.formConfig.messages, successMessage: e.target.value }
-                      }
-                    })}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        formConfig: {
+                          ...config.formConfig,
+                          messages: { ...config.formConfig.messages, successMessage: e.target.value },
+                        },
+                      })
+                    }
                     rows={2}
                   />
                 </div>
@@ -648,13 +634,15 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
                   <Label>Error Message</Label>
                   <Input
                     value={config.formConfig.messages.errorMessage}
-                    onChange={(e) => setConfig({
-                      ...config,
-                      formConfig: {
-                        ...config.formConfig,
-                        messages: { ...config.formConfig.messages, errorMessage: e.target.value }
-                      }
-                    })}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        formConfig: {
+                          ...config.formConfig,
+                          messages: { ...config.formConfig.messages, errorMessage: e.target.value },
+                        },
+                      })
+                    }
                   />
                 </div>
               </CardContent>
@@ -690,7 +678,7 @@ export const PartiesPageEditor: React.FC<PartiesPageEditorProps> = ({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Changes'}
+            {isSaving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </DialogContent>

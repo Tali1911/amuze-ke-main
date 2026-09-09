@@ -145,59 +145,65 @@ export const DateSelector: React.FC<DateSelectorProps> = ({
                 </Button>
               </div>
               
-              <div className="space-y-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {dates.map(dateOption => {
                   const isSelected = selectedDates.includes(dateOption.date);
                   const sessionType = sessionTypes[dateOption.date] || 'full';
-                  
+                  const parsed = parseLocalDate(dateOption.date);
+                  const weekdayName = format(parsed, 'EEEE');
+                  const fullDate = format(parsed, 'MMM d');
+
                   return (
-                    <div key={dateOption.date} className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          id={`date-${dateOption.date}`}
-                          checked={isSelected}
-                          onCheckedChange={() => handleDateToggle(dateOption.date)}
-                          disabled={disabled}
-                        />
-                        <Label
-                          htmlFor={`date-${dateOption.date}`}
-                          className="flex-1 cursor-pointer text-sm font-normal"
-                        >
-                          {dateOption.displayLabel}
-                        </Label>
+                    <div key={dateOption.date} className="space-y-1.5">
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={isSelected}
+                        aria-label={`${weekdayName}, ${fullDate}`}
+                        id={`date-${dateOption.date}`}
+                        onClick={() => handleDateToggle(dateOption.date)}
+                        disabled={disabled}
+                        className={`w-full text-left rounded-md border p-2.5 transition-colors ${
+                          isSelected
+                            ? 'bg-primary/10 border-primary'
+                            : 'bg-background hover:bg-muted/50 border-border'
+                        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        <div className="font-bold text-sm text-foreground leading-tight">{weekdayName}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{fullDate}</div>
                         {isSelected && !flatRate && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs mt-1.5">
                             {sessionType === 'half' ? 'Half Day' : 'Full Day'}
                           </Badge>
                         )}
                         {isSelected && flatRate && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs mt-1.5">
                             {flatRate.toLocaleString()} {currency}/day
                           </Badge>
                         )}
-                      </div>
-                      
+                      </button>
+
                       {isSelected && !flatRate && (
-                        <div className="ml-8 flex gap-2">
+                        <div className="flex flex-col gap-1">
                           <Button
                             type="button"
                             variant={sessionType === 'half' ? 'default' : 'outline'}
                             size="sm"
-                            className="flex-1 text-xs h-8"
+                            className="w-full text-[11px] h-8 px-2"
                             onClick={() => onSessionTypeChange(dateOption.date, 'half')}
                             disabled={disabled}
                           >
-                            Half Day ({halfDayRate.toLocaleString()} {currency})
+                            Half ({halfDayRate.toLocaleString()} {currency})
                           </Button>
                           <Button
                             type="button"
                             variant={sessionType === 'full' ? 'default' : 'outline'}
                             size="sm"
-                            className="flex-1 text-xs h-8"
+                            className="w-full text-[11px] h-8 px-2"
                             onClick={() => onSessionTypeChange(dateOption.date, 'full')}
                             disabled={disabled}
                           >
-                            Full Day ({fullDayRate.toLocaleString()} {currency})
+                            Full ({fullDayRate.toLocaleString()} {currency})
                           </Button>
                         </div>
                       )}

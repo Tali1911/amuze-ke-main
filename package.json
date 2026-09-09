@@ -7,13 +7,20 @@
     "node": ">=20"
   },
   "scripts": {
+    "predev": "bunx tsx scripts/generate-sitemap.ts",
     "dev": "vite",
+    "prebuild": "bunx tsx scripts/generate-sitemap.ts",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "check:sitemap": "bunx tsx scripts/check-sitemap.ts",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@fontsource/playfair-display": "^5.2.8",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
@@ -46,7 +53,7 @@
     "@tanstack/react-query": "^5.56.2",
     "@types/dompurify": "^3.0.5",
     "@types/leaflet": "^1.9.21",
-    "axios": "^1.8.4",
+    "axios": "^1.18.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
@@ -58,7 +65,7 @@
     "html2canvas": "^1.4.1",
     "html5-qrcode": "^2.3.8",
     "input-otp": "^1.2.4",
-    "jspdf": "^4.0.0",
+    "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",

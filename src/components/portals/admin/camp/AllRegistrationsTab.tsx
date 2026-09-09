@@ -11,12 +11,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { 
   Search, Eye, Download, FileSpreadsheet, FileText, QrCode, 
   Mail, CheckCircle, XCircle, Trash2, Calendar as CalendarIcon,
-  Filter, X
+  Filter, X, Settings2
 } from 'lucide-react';
+import { CustomExportDialog } from './CustomExportDialog';
 import { campRegistrationService } from '@/services/campRegistrationService';
 import { CampRegistration } from '@/types/campRegistration';
 import { toast } from 'sonner';
 import { RegistrationDetailsDialog } from './RegistrationDetailsDialog';
+import { displayLocation } from '@/lib/locationDisplay';
 import { exportService } from '@/services/exportService';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -53,6 +55,7 @@ export const AllRegistrationsTab: React.FC = () => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [minAmount, setMinAmount] = useState<string>('');
   const [maxAmount, setMaxAmount] = useState<string>('');
+  const [customExportOpen, setCustomExportOpen] = useState(false);
 
   const loadRegistrations = async () => {
     try {
@@ -247,7 +250,7 @@ export const AllRegistrationsTab: React.FC = () => {
       loadRegistrations();
     } catch (error) {
       console.error('Error deleting registration:', error);
-      toast.error('Failed to delete registration');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete registration');
     }
   };
 
@@ -270,7 +273,7 @@ export const AllRegistrationsTab: React.FC = () => {
       loadRegistrations();
     } catch (error) {
       console.error('Error deleting registrations:', error);
-      toast.error('Failed to delete registrations');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete registrations');
     }
   };
 
@@ -324,6 +327,11 @@ export const AllRegistrationsTab: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <CardTitle className="text-lg sm:text-xl">All Registrations ({registrations.length})</CardTitle>
             <div className="flex flex-wrap gap-2">
+              <Button variant="default" size="sm" onClick={() => setCustomExportOpen(true)} className="text-xs sm:text-sm">
+                <Settings2 className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Custom Export</span>
+                <span className="sm:hidden">Export</span>
+              </Button>
               <Button variant="outline" size="sm" onClick={handleExportCSV} className="text-xs sm:text-sm">
                 <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                 <span className="hidden sm:inline">CSV</span>
@@ -402,8 +410,9 @@ export const AllRegistrationsTab: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Locations</SelectItem>
-                  <SelectItem value="Kurura Gate F">Kurura Gate F</SelectItem>
+                  <SelectItem value="Kurura Gate F">Karura Gate F</SelectItem>
                   <SelectItem value="Ngong Sanctuary">Ngong Sanctuary</SelectItem>
+
                 </SelectContent>
               </Select>
               <Button
@@ -584,7 +593,7 @@ export const AllRegistrationsTab: React.FC = () => {
                       <TableCell className="font-mono text-xs sm:text-sm">{reg.registration_number?.slice(-8)}</TableCell>
                       <TableCell className="text-xs sm:text-sm max-w-[100px] truncate">{reg.parent_name}</TableCell>
                       <TableCell className="capitalize text-xs sm:text-sm hidden md:table-cell">{reg.camp_type.replace('-', ' ')}</TableCell>
-                      <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{reg.location || 'Kurura Gate F'}</TableCell>
+                      <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{displayLocation(reg.location || 'Kurura Gate F')}</TableCell>
                       <TableCell className="text-xs sm:text-sm">{reg.children.length}</TableCell>
                       <TableCell className="text-xs sm:text-sm">
                         KES {Math.max(0, (reg.total_amount || 0) - (Number((reg as any).discount_amount) || 0)).toFixed(0)}
@@ -637,6 +646,12 @@ export const AllRegistrationsTab: React.FC = () => {
           onUpdate={loadRegistrations}
         />
       )}
+
+      <CustomExportDialog
+        open={customExportOpen}
+        onOpenChange={setCustomExportOpen}
+        registrations={selectedIds.size > 0 ? getSelectedRegistrations() : registrations}
+      />
     </>
   );
 };

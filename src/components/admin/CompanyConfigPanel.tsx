@@ -200,7 +200,7 @@ const CompanyConfigPanel: React.FC = () => {
                 id="phone_number"
                 value={values.phone_number}
                 onChange={(e) => set("phone_number", e.target.value)}
-                placeholder="+254 700 000 000"
+                placeholder="+254 114 705763"
               />
             </div>
             <div className="space-y-2">
@@ -270,7 +270,7 @@ const CompanyConfigPanel: React.FC = () => {
                 id="whatsapp_number"
                 value={values.whatsapp_number}
                 onChange={(e) => set("whatsapp_number", e.target.value)}
-                placeholder="+254 700 000 000"
+                placeholder="+254 114 705763"
               />
             </div>
           </div>

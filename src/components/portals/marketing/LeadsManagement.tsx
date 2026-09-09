@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Users, Mail, Phone, Search, Filter, Eye } from "lucide-react";
 import { leadsService, Lead } from '@/services/leadsService';
 import { useToast } from "@/hooks/use-toast";
+import LeadDetailDialog from './leads/LeadDetailDialog';
+import { PIPELINE_STAGES } from '@/services/leadPipelineService';
 
 const LeadsManagement: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -247,90 +248,32 @@ const LeadsManagement: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Select
-                        value={lead.status}
-                        onValueChange={(value) => handleUpdateStatus(lead.id, value as Lead['status'])}
+                        value={(lead as any).pipeline_stage ?? lead.status}
+                        onValueChange={async (value) => {
+                          const updated = await leadsService.updateLead(lead.id, { } as any);
+                          // also persist pipeline_stage via direct service
+                          await import('@/services/leadPipelineService').then(m =>
+                            m.leadPipelineService.updateLeadFields(lead.id, { pipeline_stage: value as any })
+                          );
+                          loadLeads();
+                        }}
                       >
-                        <SelectTrigger className={`w-32 ${getStatusColor(lead.status)}`}>
+                        <SelectTrigger className="w-32">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="new">New</SelectItem>
-                          <SelectItem value="contacted">Contacted</SelectItem>
-                          <SelectItem value="qualified">Qualified</SelectItem>
-                          <SelectItem value="converted">Converted</SelectItem>
-                          <SelectItem value="lost">Lost</SelectItem>
+                          {PIPELINE_STAGES.map(s => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setSelectedLead(lead)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Lead Details</DialogTitle>
-                          </DialogHeader>
-                          {selectedLead && selectedLead.id === lead.id && (
-                            <div className="space-y-4">
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <Label>Name</Label>
-                                  <p className="font-medium">{selectedLead.full_name}</p>
-                                </div>
-                                <div>
-                                  <Label>Email</Label>
-                                  <p className="font-medium">{selectedLead.email}</p>
-                                </div>
-                                <div>
-                                  <Label>Phone</Label>
-                                  <p className="font-medium">{selectedLead.phone || 'N/A'}</p>
-                                </div>
-                                <div>
-                                  <Label>Status</Label>
-                                  <Badge className={getStatusColor(selectedLead.status)}>
-                                    {selectedLead.status}
-                                  </Badge>
-                                </div>
-                                <div>
-                                  <Label>Program Type</Label>
-                                  <p className="font-medium">{selectedLead.program_type}</p>
-                                </div>
-                                <div>
-                                  <Label>Created</Label>
-                                  <p className="font-medium">
-                                    {new Date(selectedLead.created_at).toLocaleString()}
-                                  </p>
-                                </div>
-                              </div>
-                              
-                              {selectedLead.form_data && (
-                                <div>
-                                  <Label>Registration Details</Label>
-                                  <div className="mt-2 p-3 bg-muted rounded text-sm space-y-3 max-h-60 overflow-auto">
-                                    {renderFormData(selectedLead.form_data)}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              <div>
-                                <Label>Notes</Label>
-                                <Textarea
-                                  placeholder="Add notes about this lead..."
-                                  defaultValue={selectedLead.notes || ''}
-                                  onBlur={(e) => handleUpdateNotes(selectedLead.id, e.target.value)}
-                                  className="mt-2"
-                                  rows={4}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </DialogContent>
-                      </Dialog>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedLead(lead)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -339,6 +282,14 @@ const LeadsManagement: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      <LeadDetailDialog
+        open={!!selectedLead}
+        lead={selectedLead}
+        onClose={() => setSelectedLead(null)}
+        onChanged={loadLeads}
+        renderFormData={renderFormData}
+      />
     </div>
   );
 };

@@ -51,6 +51,50 @@ const notifyAccountants = async (data: {
   }
 };
 
+/**
+ * Action items store a snapshot of parent name/email/phone at creation time.
+ * If a registration's parent details were later corrected (or the snapshot was
+ * captured from a walk-in/admin context), the snapshot goes stale and shows the
+ * wrong parent. Always overlay the live camp_registrations values when available.
+ */
+const enrichWithRegistrationContact = async (
+  items: AccountsActionItem[]
+): Promise<AccountsActionItem[]> => {
+  const ids = Array.from(
+    new Set(items.filter(i => i.registration_type === 'camp' && i.registration_id).map(i => i.registration_id))
+  );
+  if (ids.length === 0) return items;
+
+  const regMap = new Map<string, { parent_name?: string; email?: string; phone?: string }>();
+  const CHUNK = 200;
+  try {
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      const { data, error } = await supabase
+        .from('camp_registrations')
+        .select('id, parent_name, email, phone')
+        .in('id', chunk);
+      if (error) throw error;
+      (data || []).forEach((r: any) => regMap.set(r.id, r));
+    }
+  } catch (err) {
+    console.error('Failed to enrich action items with registration contacts:', err);
+    return items;
+  }
+
+  return items.map(item => {
+    const reg = regMap.get(item.registration_id);
+    if (!reg) return item;
+    return {
+      ...item,
+      parent_name: reg.parent_name?.trim() || item.parent_name,
+      email: reg.email?.trim() || item.email,
+      phone: reg.phone?.trim() || item.phone,
+    };
+  });
+};
+
+
 export const accountsActionService = {
   async createActionItem(data: Omit<AccountsActionItem, 'id' | 'created_at' | 'updated_at'>) {
     const { data: item, error } = await fromTable('accounts_action_items')
@@ -87,8 +131,10 @@ export const accountsActionService = {
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data || []) as unknown as AccountsActionItem[];
+    const items = (data || []) as unknown as AccountsActionItem[];
+    return await enrichWithRegistrationContact(items);
   },
+
 
   async getPendingItems() {
     return this.getActionItems({ status: 'pending' });

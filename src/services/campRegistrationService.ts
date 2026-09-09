@@ -23,20 +23,54 @@ const isCompletedPayment = (payment: any) => {
   return source !== 'camp_registration_attempt' && (status === 'completed' || status === 'paid' || status === '');
 };
 
+const PAGE_SIZE = 1000;
+
+// PostgREST caps every response at max-rows (1000). Any unpaginated select silently
+// truncates, which made older registrations/payments disappear from lists such as
+// the attendance register. Always page through the full result set.
+const fetchAllPages = async (buildQuery: (from: number, to: number) => any): Promise<any[]> => {
+  const rows: any[] = [];
+  for (let page = 0; ; page++) {
+    const from = page * PAGE_SIZE;
+    const { data, error } = await buildQuery(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = data || [];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+  }
+  return rows;
+};
+
+const chunk = <T,>(arr: T[], size: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+};
+
 const withResolvedPaymentStatuses = async (registrations: CampRegistration[]): Promise<CampRegistration[]> => {
   const ids = registrations.map((reg) => reg.id).filter(Boolean) as string[];
   if (!ids.length) return registrations;
 
-  const { data, error } = await (supabase as any)
-    .from('payments')
-    .select('registration_id, amount, status, source, payment_method, payment_reference, created_at')
-    .in('registration_id', ids)
-    .order('created_at', { ascending: false });
-
-  if (error) {
+  let data: any[] = [];
+  try {
+    // Chunk the id list (URL length) and page each chunk (row cap).
+    for (const idsChunk of chunk(ids, 150)) {
+      const rows = await fetchAllPages((from, to) =>
+        (supabase as any)
+          .from('payments')
+          .select('registration_id, amount, status, source, payment_method, payment_reference, created_at')
+          .in('registration_id', idsChunk)
+          .order('created_at', { ascending: false })
+          .range(from, to)
+      );
+      data = data.concat(rows);
+    }
+  } catch (error) {
     console.error('Error resolving registration payments:', error);
     return registrations;
   }
+
+
 
   const totals = new Map<string, number>();
   const latest = new Map<string, { method?: string; reference?: string }>();
@@ -194,30 +228,34 @@ export const campRegistrationService = {
     startDate?: string;
     endDate?: string;
   }) {
-    let query = supabase
-      .from('camp_registrations')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const buildQuery = (from: number, to: number) => {
+      let query = supabase
+        .from('camp_registrations')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-    if (filters?.campType) {
-      query = query.eq('camp_type', filters.campType);
-    }
-    if (filters?.startDate) {
-      query = query.gte('created_at', filters.startDate);
-    }
-    if (filters?.endDate) {
-      query = query.lte('created_at', filters.endDate);
-    }
+      if (filters?.campType) {
+        query = query.eq('camp_type', filters.campType);
+      }
+      if (filters?.startDate) {
+        query = query.gte('created_at', filters.startDate);
+      }
+      if (filters?.endDate) {
+        query = query.lte('created_at', filters.endDate);
+      }
+      return query;
+    };
 
-    const { data, error } = await query;
+    const data = await fetchAllPages(buildQuery);
 
-    if (error) throw error;
     let registrations = await withResolvedPaymentStatuses(data.map(fromDb));
     if (filters?.paymentStatus) {
       registrations = registrations.filter((reg) => reg.payment_status === filters.paymentStatus);
     }
     return registrations;
   },
+
 
   async updateRegistration(id: string, updates: Partial<CampRegistration>) {
     const { data, error } = await supabase
@@ -288,6 +326,32 @@ export const campRegistrationService = {
         });
       } catch (error) {
         console.error('Error creating unified payment record:', error);
+      }
+    }
+
+    // Sync accounts action items: a fully-paid registration must not leave
+    // pending collection rows behind — they drive the Total Outstanding
+    // figures on the dashboard, pending collections and AR reports.
+    if (status === 'paid') {
+      try {
+        const { data: openItems } = await (supabase as any)
+          .from('accounts_action_items')
+          .select('id, amount_due')
+          .eq('registration_id', id)
+          .in('status', ['pending', 'in_progress']);
+
+        for (const item of openItems || []) {
+          await (supabase as any)
+            .from('accounts_action_items')
+            .update({
+              amount_paid: item.amount_due,
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
+        }
+      } catch (err) {
+        console.error('Error syncing action items on paid status:', err);
       }
     }
 
@@ -382,18 +446,58 @@ export const campRegistrationService = {
       const perChildPaid = Math.round((amountPaid / childCount) * 100) / 100;
       const perChildDiscount = Math.round((discount / childCount) * 100) / 100;
       const newItemStatus = status === 'paid' ? 'completed' : 'pending';
+      const completedAt = newItemStatus === 'completed' ? new Date().toISOString() : undefined;
 
+      // Fetch this registration's open action items once, then match by
+      // normalized child name so spacing/case differences (e.g. between the
+      // registration form and check-in records) don't silently skip rows.
+      const normalizeName = (n: string) => (n || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const { data: openItems } = await (supabase as any)
+        .from('accounts_action_items')
+        .select('id, child_name, amount_due')
+        .eq('registration_id', id)
+        .in('status', ['pending', 'in_progress']);
+
+      const itemsByName = new Map<string, any[]>();
+      (openItems || []).forEach((item: any) => {
+        const key = normalizeName(item.child_name);
+        const arr = itemsByName.get(key) || [];
+        arr.push(item);
+        itemsByName.set(key, arr);
+      });
+
+      const matchedIds = new Set<string>();
       for (const child of children) {
         const childDue = Math.max(0, (Number(child.price) || 0) - perChildDiscount);
-        await (supabase as any)
-          .from('accounts_action_items')
-          .update({
-            amount_due: childDue,
-            amount_paid: perChildPaid,
-            status: newItemStatus,
-          })
-          .eq('registration_id', id)
-          .eq('child_name', child.childName);
+        const matches = itemsByName.get(normalizeName(child.childName)) || [];
+        for (const item of matches) {
+          matchedIds.add(item.id);
+          await (supabase as any)
+            .from('accounts_action_items')
+            .update({
+              amount_due: childDue,
+              amount_paid: perChildPaid,
+              status: newItemStatus,
+              ...(completedAt ? { completed_at: completedAt } : {}),
+            })
+            .eq('id', item.id);
+        }
+      }
+
+      // Fallback: a fully-paid registration must not leave open items behind,
+      // even when a child name didn't match (e.g. edited after check-in).
+      if (status === 'paid') {
+        const unmatched = (openItems || []).filter((item: any) => !matchedIds.has(item.id));
+        for (const item of unmatched) {
+          await (supabase as any)
+            .from('accounts_action_items')
+            .update({
+              amount_paid: item.amount_due,
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
+        }
       }
     } catch (err) {
       console.error('Error updating action items:', err);
@@ -424,29 +528,74 @@ export const campRegistrationService = {
     return withResolvedPaymentStatuses(data.map(fromDb));
   },
 
+  /**
+   * Registrations that have a recorded payment must never be hard-deleted:
+   * doing so orphans the payment row and silently removes a paid child from the
+   * attendance register. Returns the ids that are protected.
+   */
+  async findPaidProtectedIds(ids: string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const protectedIds = new Set<string>();
+
+    // Only COMPLETED real payments protect a registration. Abandoned online
+    // checkout attempts (source 'camp_registration_attempt', or pending /
+    // initiated / failed rows) represent no money received and must not block
+    // deleting an accidental registration.
+    for (let i = 0; i < ids.length; i += 150) {
+      const chunk = ids.slice(i, i + 150);
+      const { data } = await supabase
+        .from('payments' as any)
+        .select('registration_id, status, source')
+        .in('registration_id', chunk);
+      for (const p of (data || []) as any[]) {
+        if (p?.registration_id && isCompletedPayment(p)) {
+          protectedIds.add(p.registration_id);
+        }
+      }
+
+      // Or the registration itself is marked paid/partial
+      const { data: regs } = await supabase
+        .from('camp_registrations')
+        .select('id, payment_status')
+        .in('id', chunk);
+      for (const r of (regs || []) as any[]) {
+        if (r?.payment_status === 'paid' || r?.payment_status === 'partial') {
+          protectedIds.add(r.id);
+        }
+      }
+    }
+
+    return Array.from(protectedIds);
+  },
+
   async deleteRegistration(id: string) {
-    // First delete related attendance records
-    await supabase
-      .from('camp_attendance')
-      .delete()
-      .eq('registration_id', id);
-
-    // Then delete the registration
-    const { error } = await supabase
-      .from('camp_registrations')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-    return true;
+    return this.deleteRegistrations([id]);
   },
 
   async deleteRegistrations(ids: string[]) {
+    if (!ids || ids.length === 0) return true;
+
+    const blocked = await this.findPaidProtectedIds(ids);
+    if (blocked.length > 0) {
+      throw new Error(
+        `${blocked.length} registration(s) have completed payments recorded and cannot be deleted. ` +
+        `If the payment was recorded by mistake, set the payment status to "unpaid" first, then delete. ` +
+        `Otherwise cancel the registration instead (set status to "cancelled").`
+      );
+    }
+
     // First delete related attendance records for all registrations
     await supabase
       .from('camp_attendance')
       .delete()
       .in('registration_id', ids);
+
+    // Remove abandoned payment attempts so they don't linger as orphans
+    await (supabase as any)
+      .from('payments')
+      .delete()
+      .in('registration_id', ids)
+      .eq('source', 'camp_registration_attempt');
 
     // Then delete all registrations
     const { error } = await supabase

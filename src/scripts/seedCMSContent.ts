@@ -406,7 +406,7 @@ export const seedSiteSettings = async () => {
     metadata: {
       footer_description:
         "Amuse.Ke offers transformative outdoor education experiences that inspire growth, build confidence, and foster a deep connection with nature.",
-      contact_phone: "+254 700 000 000",
+      contact_phone: "+254 114 705763",
       contact_email: "info@amuse.ke",
       contact_address: "Karura Forest, Sigiria Ridge (Gate F), Nairobi, Kenya",
       contact_hours: "Mon-Fri: 8AM-5PM, Sat-Sun: 9AM-4PM",

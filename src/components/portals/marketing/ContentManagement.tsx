@@ -34,9 +34,21 @@ import { HomeschoolingPageEditor } from './editors/HomeschoolingPageEditor';
 import { KenyanExperiencesPageEditor } from './editors/KenyanExperiencesPageEditor';
 import MediaLibrary from './MediaLibrary';
 import { BlogPostEditor } from './editors/BlogPostEditor';
-type EditorType = 'hero' | 'program' | 'announcement' | 'testimonial' | 'team' | 'settings' | 'about' | 'service' | 'camp-page' | 'camp-form' | 'little-forest' | 'program-form' | 'activity-detail' | 'legal-terms' | 'legal-privacy' | 'parties-page' | 'team-building-page' | 'experience-page' | 'school-adventures-page' | 'homeschooling-page' | 'kenyan-experiences-page' | 'blog-post' | null;
+import HomeSectionEditor from './editors/HomeSectionEditor';
+import LivePreviewPanel from './LivePreviewPanel';
+import SortableHomeSections from './SortableHomeSections';
+type EditorType = 'hero' | 'program' | 'announcement' | 'testimonial' | 'team' | 'settings' | 'about' | 'service' | 'camp-page' | 'camp-form' | 'little-forest' | 'program-form' | 'activity-detail' | 'legal-terms' | 'legal-privacy' | 'parties-page' | 'team-building-page' | 'experience-page' | 'school-adventures-page' | 'homeschooling-page' | 'kenyan-experiences-page' | 'blog-post' | 'home-section' | null;
 const ContentManagement = () => {
   const isMobile = useIsMobile();
+  const [isTabletOrSmaller, setIsTabletOrSmaller] = React.useState<boolean>(
+    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
+  );
+  React.useEffect(() => {
+    const onResize = () => setIsTabletOrSmaller(window.innerWidth < 1024);
+    window.addEventListener('resize', onResize);
+    onResize();
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const [activeTab, setActiveTab] = useState('hero');
   const [heroSlides, setHeroSlides] = useState<ContentItem[]>([]);
   const [programs, setPrograms] = useState<ContentItem[]>([]);
@@ -44,6 +56,17 @@ const ContentManagement = () => {
   const [testimonials, setTestimonials] = useState<ContentItem[]>([]);
   const [teamMembers, setTeamMembers] = useState<ContentItem[]>([]);
   const [aboutSections, setAboutSections] = useState<ContentItem[]>([]);
+  const [homeSections, setHomeSections] = useState<ContentItem[]>([]);
+  const [newsSections, setNewsSections] = useState<ContentItem[]>([]);
+  const [campSections, setCampSections] = useState<ContentItem[]>([]);
+  const [campEditorOpen, setCampEditorOpen] = useState(false);
+  const [editingCampItem, setEditingCampItem] = useState<ContentItem | null>(null);
+  const [programsPageSections, setProgramsPageSections] = useState<ContentItem[]>([]);
+  const [programsPageEditorOpen, setProgramsPageEditorOpen] = useState(false);
+  const [editingProgramsPageItem, setEditingProgramsPageItem] = useState<ContentItem | null>(null);
+  const [newsEditorOpen, setNewsEditorOpen] = useState(false);
+  const [editingNewsItem, setEditingNewsItem] = useState<ContentItem | null>(null);
+
   const [serviceItems, setServiceItems] = useState<ContentItem[]>([]);
   const [campPages, setCampPages] = useState<ContentItem[]>([]);
   const [campForms, setCampForms] = useState<ContentItem[]>([]);
@@ -65,7 +88,21 @@ const ContentManagement = () => {
     setAnnouncements(announcementData);
     setTestimonials(testimonialData);
     setTeamMembers(teamData);
-    setAboutSections(aboutData);
+    // Split about_section rows: home-scoped, news-scoped, camp-scoped and about-scoped.
+    const homeScoped = (aboutData || []).filter((r: any) => r?.metadata?.scope === 'home');
+    const newsScoped = (aboutData || []).filter((r: any) => r?.metadata?.scope === 'news');
+    const campScoped = (aboutData || []).filter((r: any) => r?.metadata?.scope === 'camp');
+    const programsScoped = (aboutData || []).filter((r: any) => r?.metadata?.scope === 'programs');
+    const aboutScoped = (aboutData || []).filter((r: any) => {
+      const scope = r?.metadata?.scope || 'about';
+      return scope !== 'home' && scope !== 'news' && scope !== 'camp' && scope !== 'programs';
+    });
+    setAboutSections(aboutScoped);
+    setHomeSections([...homeScoped].sort((a: any, b: any) => (a?.metadata?.order ?? 99) - (b?.metadata?.order ?? 99)));
+    setNewsSections([...newsScoped].sort((a: any, b: any) => (a?.metadata?.order ?? 99) - (b?.metadata?.order ?? 99)));
+    setCampSections([...campScoped].sort((a: any, b: any) => (a?.metadata?.order ?? 99) - (b?.metadata?.order ?? 99)));
+    setProgramsPageSections([...programsScoped].sort((a: any, b: any) => (a?.metadata?.order ?? 99) - (b?.metadata?.order ?? 99)));
+
     setServiceItems(serviceData);
     setCampPages(campPageData);
     setCampForms(campFormData);
@@ -86,6 +123,74 @@ const ContentManagement = () => {
       }
     }
   };
+  const handleToggleHomeVisibility = async (item: ContentItem) => {
+    const currentlyVisible = item.metadata?.visible !== false;
+    const nextMeta = { ...(item.metadata || {}), visible: !currentlyVisible };
+    const scope = item.metadata?.scope;
+    // Optimistic update on the appropriate list
+    if (scope === 'news') {
+      setNewsSections(prev => prev.map(s => s.id === item.id ? { ...s, metadata: nextMeta } : s));
+    } else if (scope === 'camp') {
+      setCampSections(prev => prev.map(s => s.id === item.id ? { ...s, metadata: nextMeta } : s));
+    } else if (scope === 'programs') {
+      setProgramsPageSections(prev => prev.map(s => s.id === item.id ? { ...s, metadata: nextMeta } : s));
+    } else {
+      setHomeSections(prev => prev.map(s => s.id === item.id ? { ...s, metadata: nextMeta } : s));
+    }
+
+    const updated = await cmsService.updateContent(item.id, { metadata: nextMeta } as any);
+    if (updated) {
+      toast({ title: currentlyVisible ? 'Section hidden' : 'Section visible' });
+      window.dispatchEvent(new CustomEvent('cms-content-updated'));
+      loadAllContent();
+    } else {
+      loadAllContent();
+      toast({ title: 'Failed to update visibility', variant: 'destructive' });
+    }
+  };
+  const handleReorderSections = (
+    newItems: ContentItem[],
+    setter: React.Dispatch<React.SetStateAction<ContentItem[]>>,
+  ) => {
+    const withOrder = newItems.map((it, idx) => ({
+      ...it,
+      metadata: { ...(it.metadata || {}), order: (idx + 1) * 10 },
+    }));
+    // Optimistic UI first — feels instant.
+    setter(withOrder);
+
+    // Only persist rows whose order actually changed.
+    const changed = withOrder.filter(
+      it => (newItems.find(n => n.id === it.id)?.metadata?.order) !== it.metadata.order
+        || true // fall through — but we still diff against original below
+    );
+    // Better diff: compare to prior order from newItems input isn't reliable
+    // (already reordered). Instead compare to the DOM order pre-set: use index vs previous metadata.order.
+    const toPersist = withOrder.filter((it, idx) => {
+      const prevOrder = newItems[idx]?.metadata?.order;
+      return prevOrder !== it.metadata.order;
+    });
+
+    // Fire-and-forget; don't block the UI on the network round-trip.
+    (async () => {
+      try {
+        await Promise.all(
+          toPersist.map(it => cmsService.updateContent(it.id, { metadata: it.metadata } as any))
+        );
+        window.dispatchEvent(new CustomEvent('cms-content-updated'));
+      } catch (err) {
+        console.error('Failed to reorder sections', err);
+        toast({ title: 'Failed to save order', variant: 'destructive' });
+        loadAllContent();
+      }
+    })();
+  };
+
+  const handleReorderHomeSections = (items: ContentItem[]) => handleReorderSections(items, setHomeSections);
+  const handleReorderNewsSections = (items: ContentItem[]) => handleReorderSections(items, setNewsSections);
+  const handleReorderCampSections = (items: ContentItem[]) => handleReorderSections(items, setCampSections);
+  const handleReorderProgramsPageSections = (items: ContentItem[]) => handleReorderSections(items, setProgramsPageSections);
+
   const handlePublish = async (id: string) => {
     const published = await cmsService.publishContent(id);
     if (published) {
@@ -114,44 +219,162 @@ const ContentManagement = () => {
     if (status === 'draft') return <Badge className="bg-yellow-100 text-yellow-800">Draft</Badge>;
     return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>;
   };
+  const renderItemRow = (item: ContentItem, type: EditorType) => {
+    const scope = item.metadata?.scope;
+    const isPageSection = scope === 'home' || scope === 'news' || scope === 'camp';
+    const pageLabel = scope === 'news' ? 'news page' : scope === 'camp' ? 'camp page' : scope === 'programs' ? 'programs page' : 'homepage';
+
+    return (
+    <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <h4 className="font-medium">{item.title}</h4>
+          <p className="text-sm text-muted-foreground mb-2">{item.slug}</p>
+          <div className="flex gap-2 items-center flex-wrap">
+            {getStatusBadge(item.status)}
+            {item.metadata?.order && <span className="text-xs text-muted-foreground">Order: {item.metadata.order}</span>}
+            {(item.content_type === 'program' || isPageSection) && item.metadata?.visible === false && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                <EyeOff className="h-3 w-3 mr-1" />
+                Hidden
+              </Badge>}
+            {(item.content_type === 'program' || isPageSection) && item.metadata?.visible !== false && <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                <Eye className="h-3 w-3 mr-1" />
+                Visible
+              </Badge>}
+            {isPageSection && item.metadata?.section_kind && (
+              <Badge variant="secondary" className="text-xs">{item.metadata.section_kind}</Badge>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {item.status === 'draft' && <Button variant="outline" size="sm" onClick={() => handlePublish(item.id)}>
+              <CheckCircle className="h-4 w-4 mr-1" />
+              Publish
+            </Button>}
+          {isPageSection && (() => {
+            const kind = item.metadata?.section_kind;
+            const isCustomKind = kind === 'custom' || kind === 'custom_cards';
+            const isVisible = item.metadata?.visible !== false;
+            const openThisEditor = () => {
+              if (scope === 'news') {
+                setEditingNewsItem(item);
+                setNewsEditorOpen(true);
+              } else if (scope === 'camp') {
+                setEditingCampItem(item);
+                setCampEditorOpen(true);
+              } else if (scope === 'programs') {
+                setEditingProgramsPageItem(item);
+                setProgramsPageEditorOpen(true);
+              } else {
+                openEditor(type, item);
+              }
+            };
+
+            return (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title={isVisible ? `Hide from ${pageLabel}` : `Show on ${pageLabel}`}
+                  onClick={() => handleToggleHomeVisibility(item)}
+                >
+                  {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+                <Button variant="outline" size="sm" onClick={openThisEditor}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!isCustomKind}
+                  title={isCustomKind ? 'Delete section' : 'Built-in sections can only be hidden, not deleted.'}
+                  onClick={() => handleDelete(item.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
+            );
+          })()}
+          {!isPageSection && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => openEditor(type, item)}>
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleDelete(item.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+    );
+  };
   const renderContentList = (items: ContentItem[], type: EditorType) => {
     if (isLoading) return <div className="text-center py-8">Loading...</div>;
     if (items.length === 0) return <div className="text-center py-8 text-muted-foreground">No items yet. Create your first one!</div>;
     return <div className="space-y-3">
-        {items.map(item => <div key={item.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <h4 className="font-medium">{item.title}</h4>
-                <p className="text-sm text-muted-foreground mb-2">{item.slug}</p>
-                <div className="flex gap-2 items-center flex-wrap">
-                  {getStatusBadge(item.status)}
-                  {item.metadata?.order && <span className="text-xs text-muted-foreground">Order: {item.metadata.order}</span>}
-                  {item.content_type === 'program' && item.metadata?.visible === false && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                      <EyeOff className="h-3 w-3 mr-1" />
-                      Hidden
-                    </Badge>}
-                  {item.content_type === 'program' && item.metadata?.visible !== false && <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      <Eye className="h-3 w-3 mr-1" />
-                      Visible
-                    </Badge>}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {item.status === 'draft' && <Button variant="outline" size="sm" onClick={() => handlePublish(item.id)}>
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Publish
-                  </Button>}
-                <Button variant="outline" size="sm" onClick={() => openEditor(type, item)}>
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleDelete(item.id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>)}
+        {items.map(item => <div key={item.id}>{renderItemRow(item, type)}</div>)}
       </div>;
   };
+  const renderHomeSectionsList = () => {
+    if (isLoading) return <div className="text-center py-8">Loading...</div>;
+    if (homeSections.length === 0) return <div className="text-center py-8 text-muted-foreground">No items yet. Create your first one!</div>;
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">Drag the handle on the left of any section to reorder how it appears on the homepage. Order is saved automatically.</p>
+        <SortableHomeSections
+          items={homeSections}
+          renderItem={(item) => renderItemRow(item, 'home-section')}
+          onReorder={handleReorderHomeSections}
+        />
+      </div>
+    );
+  };
+  const renderNewsSectionsList = () => {
+    if (isLoading) return <div className="text-center py-8">Loading...</div>;
+    if (newsSections.length === 0) return <div className="text-center py-8 text-muted-foreground">No sections yet. Add your first one to build the News & Updates page!</div>;
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">Drag the handle on the left of any section to reorder how it appears on the News &amp; Updates page. Order is saved automatically.</p>
+        <SortableHomeSections
+          items={newsSections}
+          renderItem={(item) => renderItemRow(item, 'home-section')}
+          onReorder={handleReorderNewsSections}
+        />
+      </div>
+    );
+  };
+  const renderCampSectionsList = () => {
+    if (isLoading) return <div className="text-center py-8">Loading...</div>;
+    if (campSections.length === 0) return <div className="text-center py-8 text-muted-foreground">No sections yet. Add your first one to build the Camp page!</div>;
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">Drag the handle on the left of any section to reorder how it appears on the Camp page. Order is saved automatically.</p>
+        <SortableHomeSections
+          items={campSections}
+          renderItem={(item) => renderItemRow(item, 'home-section')}
+          onReorder={handleReorderCampSections}
+        />
+      </div>
+    );
+  };
+
+  const renderProgramsPageSectionsList = () => {
+    if (isLoading) return <div className="text-center py-8">Loading...</div>;
+    if (programsPageSections.length === 0) return <div className="text-center py-8 text-muted-foreground">No sections yet. Add your first one to build the Programs page!</div>;
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">Drag the handle on the left of any section to reorder how it appears on the Programs page. Order is saved automatically.</p>
+        <SortableHomeSections
+          items={programsPageSections}
+          renderItem={(item) => renderItemRow(item, 'home-section')}
+          onReorder={handleReorderProgramsPageSections}
+        />
+      </div>
+    );
+  };
+
   return <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Website Content Management</h2>
@@ -161,11 +384,16 @@ const ContentManagement = () => {
       <SeedCMSButton />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        {isMobile ? <Select value={activeTab} onValueChange={setActiveTab}>
+        {isTabletOrSmaller ? <Select value={activeTab} onValueChange={setActiveTab}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select content type" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="home">Home Page</SelectItem>
+              <SelectItem value="news">News &amp; Updates Page</SelectItem>
+              <SelectItem value="camp">Camp Page</SelectItem>
+              <SelectItem value="programs-page">Programs Page</SelectItem>
+
               <SelectItem value="hero">Hero Section</SelectItem>
               <SelectItem value="blog">Blog Posts</SelectItem>
               <SelectItem value="activity-details">Activity Details</SelectItem>
@@ -185,26 +413,118 @@ const ContentManagement = () => {
               <SelectItem value="legal">Legal Pages</SelectItem>
               <SelectItem value="settings">Settings</SelectItem>
             </SelectContent>
-          </Select> : <TabsList className="grid grid-cols-7 lg:grid-cols-14 gap-1 overflow-x-auto">
-            <TabsTrigger value="hero">Hero</TabsTrigger>
-            <TabsTrigger value="blog">Blog</TabsTrigger>
-            <TabsTrigger value="activity-details">Activities</TabsTrigger>
-            <TabsTrigger value="services">Services</TabsTrigger>
-            <TabsTrigger value="about">About</TabsTrigger>
-            <TabsTrigger value="testimonials">Testimonials</TabsTrigger>
-            <TabsTrigger value="team">Team</TabsTrigger>
-            <TabsTrigger value="programs">Programs</TabsTrigger>
-            <TabsTrigger value="program-forms">Forms</TabsTrigger>
-            <TabsTrigger value="gallery">Gallery</TabsTrigger>
-            <TabsTrigger value="announcements">Announcements</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            <TabsTrigger value="navigation">Navigation</TabsTrigger>
-            <TabsTrigger value="camps">Camps</TabsTrigger>
-            <TabsTrigger value="experiences">Experiences</TabsTrigger>
-            <TabsTrigger value="media">Media</TabsTrigger>
-            <TabsTrigger value="legal">Legal</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </Select> : <TabsList className="flex flex-wrap justify-start h-auto gap-1 p-1 w-full">
+            <TabsTrigger value="home" className="flex-grow-0 px-3 py-1.5 text-sm">Home</TabsTrigger>
+            <TabsTrigger value="news" className="flex-grow-0 px-3 py-1.5 text-sm">News &amp; Updates</TabsTrigger>
+            <TabsTrigger value="camp" className="flex-grow-0 px-3 py-1.5 text-sm">Camp</TabsTrigger>
+            <TabsTrigger value="programs-page" className="flex-grow-0 px-3 py-1.5 text-sm">Programs Page</TabsTrigger>
+
+            <TabsTrigger value="hero" className="flex-grow-0 px-3 py-1.5 text-sm">Hero</TabsTrigger>
+            <TabsTrigger value="blog" className="flex-grow-0 px-3 py-1.5 text-sm">Blog</TabsTrigger>
+            <TabsTrigger value="activity-details" className="flex-grow-0 px-3 py-1.5 text-sm">Activities</TabsTrigger>
+            <TabsTrigger value="services" className="flex-grow-0 px-3 py-1.5 text-sm">Services</TabsTrigger>
+            <TabsTrigger value="about" className="flex-grow-0 px-3 py-1.5 text-sm">About</TabsTrigger>
+            <TabsTrigger value="testimonials" className="flex-grow-0 px-3 py-1.5 text-sm">Testimonials</TabsTrigger>
+            <TabsTrigger value="team" className="flex-grow-0 px-3 py-1.5 text-sm">Team</TabsTrigger>
+            <TabsTrigger value="programs" className="flex-grow-0 px-3 py-1.5 text-sm">Programs</TabsTrigger>
+            <TabsTrigger value="program-forms" className="flex-grow-0 px-3 py-1.5 text-sm">Forms</TabsTrigger>
+            <TabsTrigger value="gallery" className="flex-grow-0 px-3 py-1.5 text-sm">Gallery</TabsTrigger>
+            <TabsTrigger value="announcements" className="flex-grow-0 px-3 py-1.5 text-sm">Announcements</TabsTrigger>
+            <TabsTrigger value="calendar" className="flex-grow-0 px-3 py-1.5 text-sm">Calendar</TabsTrigger>
+            <TabsTrigger value="navigation" className="flex-grow-0 px-3 py-1.5 text-sm">Navigation</TabsTrigger>
+            <TabsTrigger value="camps" className="flex-grow-0 px-3 py-1.5 text-sm">Camps</TabsTrigger>
+            <TabsTrigger value="experiences" className="flex-grow-0 px-3 py-1.5 text-sm">Experiences</TabsTrigger>
+            <TabsTrigger value="media" className="flex-grow-0 px-3 py-1.5 text-sm">Media</TabsTrigger>
+            <TabsTrigger value="legal" className="flex-grow-0 px-3 py-1.5 text-sm">Legal</TabsTrigger>
+            <TabsTrigger value="settings" className="flex-grow-0 px-3 py-1.5 text-sm">Settings</TabsTrigger>
           </TabsList>}
+
+        <TabsContent value="home" className="space-y-4">
+          <LivePreviewPanel path="/" />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Home Page Sections</CardTitle>
+                <CardDescription>
+                  Toggle visibility for built-in sections (Hero, Announcements, Programs, Calendar, Testimonials),
+                  edit typography, and add custom sections. Changes appear in the preview above after saving.
+                </CardDescription>
+              </div>
+              <Button onClick={() => openEditor('home-section')}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Section
+              </Button>
+            </CardHeader>
+            <CardContent>{renderHomeSectionsList()}</CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="news" className="space-y-4">
+          <LivePreviewPanel path="/announcements" />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>News &amp; Updates Page Sections</CardTitle>
+                <CardDescription>
+                  Toggle visibility for built-in sections (Announcements, Yearly Calendar), edit typography,
+                  add custom sections or card grids, and reorder how they appear on the page.
+                </CardDescription>
+              </div>
+              <Button onClick={() => { setEditingNewsItem(null); setNewsEditorOpen(true); }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Section
+              </Button>
+            </CardHeader>
+            <CardContent>{renderNewsSectionsList()}</CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="programs-page" className="space-y-4">
+          <LivePreviewPanel path="/programs" />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Programs Page Sections</CardTitle>
+                <CardDescription>
+                  Build the public Programs overview page. Add custom sections or card grids that
+                  describe each programme and link straight to its registration form
+                  (Camps, School Adventures, Kenyan Experiences, Group Activities, Homeschooling),
+                  edit typography, toggle visibility, and drag to reorder. If no sections exist,
+                  the page shows a short "being prepared" message.
+                </CardDescription>
+              </div>
+              <Button onClick={() => { setEditingProgramsPageItem(null); setProgramsPageEditorOpen(true); }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Section
+              </Button>
+            </CardHeader>
+            <CardContent>{renderProgramsPageSectionsList()}</CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="camp" className="space-y-4">
+          <LivePreviewPanel path="/camp" />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Camp Page Sections</CardTitle>
+                <CardDescription>
+                  Build the public Camp overview page. Add custom sections or card grids that
+                  link to individual camps (Easter, Summer, End Year, Mid-Term, Day Camps),
+                  edit typography, toggle visibility, and drag to reorder.
+                </CardDescription>
+              </div>
+              <Button onClick={() => { setEditingCampItem(null); setCampEditorOpen(true); }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Section
+              </Button>
+            </CardHeader>
+            <CardContent>{renderCampSectionsList()}</CardContent>
+          </Card>
+        </TabsContent>
+
+
+
 
         <TabsContent value="hero" className="space-y-4">
           <Card>
@@ -628,6 +948,39 @@ const ContentManagement = () => {
       {activeEditor === 'kenyan-experiences-page' && <KenyanExperiencesPageEditor isOpen={true} onClose={closeEditor} onSave={handleSave} />}
 
       {activeEditor === 'blog-post' && <BlogPostEditor isOpen={true} onClose={closeEditor} post={editingItem} onSave={handleSave} />}
+
+      {activeEditor === 'home-section' && <HomeSectionEditor isOpen={true} onClose={closeEditor} item={editingItem} onSave={handleSave} />}
+
+      {newsEditorOpen && (
+        <HomeSectionEditor
+          isOpen={true}
+          scope="news"
+          onClose={() => { setNewsEditorOpen(false); setEditingNewsItem(null); }}
+          item={editingNewsItem}
+          onSave={async () => { setNewsEditorOpen(false); setEditingNewsItem(null); await loadAllContent(); window.dispatchEvent(new CustomEvent('cms-content-updated')); }}
+        />
+      )}
+
+      {programsPageEditorOpen && (
+        <HomeSectionEditor
+          isOpen={true}
+          scope="programs"
+          onClose={() => { setProgramsPageEditorOpen(false); setEditingProgramsPageItem(null); }}
+          item={editingProgramsPageItem}
+          onSave={async () => { setProgramsPageEditorOpen(false); setEditingProgramsPageItem(null); await loadAllContent(); window.dispatchEvent(new CustomEvent('cms-content-updated')); }}
+        />
+      )}
+
+      {campEditorOpen && (
+        <HomeSectionEditor
+          isOpen={true}
+          scope="camp"
+          onClose={() => { setCampEditorOpen(false); setEditingCampItem(null); }}
+          item={editingCampItem}
+          onSave={async () => { setCampEditorOpen(false); setEditingCampItem(null); await loadAllContent(); window.dispatchEvent(new CustomEvent('cms-content-updated')); }}
+        />
+      )}
+
     </div>;
 };
 export default ContentManagement;

@@ -43,6 +43,11 @@ import { performSecurityChecks, recordSubmission } from "@/services/formSecurity
 import { scrollToFirstError } from "@/utils/scrollToError";
 import { parseLocalDate } from "@/utils/dateUtils";
 
+const HALF_DAY_SLOTS = [
+  { value: "morning", label: "9:00 AM – 1:00 PM" },
+  { value: "afternoon", label: "12:00 – 4:00 PM" },
+];
+
 const homeschoolingSchema = z.object({
   parentName: z.string().min(1, "Parent name is required").max(100),
   children: z
@@ -56,6 +61,7 @@ const homeschoolingSchema = z.object({
     .min(1, "Please add at least one child"),
   package: z.string().min(1, "Please select a package"),
   sessionDay: z.string().optional(),
+  sessionSlot: z.string().optional(),
   transport: z.boolean().default(false),
   meal: z.boolean().default(false),
   allergies: z.string().max(500).optional().default(""),
@@ -118,6 +124,7 @@ const HomeschoolingProgram = () => {
       children: [{ name: "", dateOfBirth: undefined, selectedDates: [] }],
       package: "",
       sessionDay: "",
+      sessionSlot: "",
       transport: false,
       meal: false,
       allergies: "",
@@ -133,6 +140,7 @@ const HomeschoolingProgram = () => {
   const consent = watch("consent");
   const selectedPackageId = watch("package");
   const sessionDay = watch("sessionDay");
+  const sessionSlot = watch("sessionSlot");
   const watchedChildren = watch("children") || [];
 
   const selectedPackage = useMemo(
@@ -212,6 +220,10 @@ const HomeschoolingProgram = () => {
       toast.error("Please choose Wednesday or Friday for the Explorers package");
       return;
     }
+    if (selectedPackage?.sessionType === "half" && !data.sessionSlot) {
+      toast.error("Please choose a half-day time slot (9:00 AM – 1:00 PM or 12:00 – 4:00 PM)");
+      return;
+    }
 
     // Security checks: prevent duplicates and rate limiting
     const securityCheck = await performSecurityChecks(data, "homeschooling");
@@ -224,9 +236,11 @@ const HomeschoolingProgram = () => {
     const sessionType = selectedPackage?.sessionType === "full" ? "full" : "half";
 
     try {
+      const slotLabel = HALF_DAY_SLOTS.find((s) => s.value === data.sessionSlot)?.label;
       const notes = [
         data.transport ? "Transport requested" : null,
         data.meal ? "Meal requested" : null,
+        sessionType === "half" && slotLabel ? `Preferred slot: ${slotLabel}` : null,
         data.allergies ? `Allergies: ${data.allergies}` : null,
       ]
         .filter(Boolean)
@@ -285,7 +299,11 @@ const HomeschoolingProgram = () => {
           phone: data.phone,
           program_type: "homeschooling",
           program_name: packageName,
-          form_data: { ...data, sessionDay: sessionDay ? WEEKDAY_LABELS[Number(sessionDay)] : undefined },
+          form_data: {
+            ...data,
+            sessionDay: sessionDay ? WEEKDAY_LABELS[Number(sessionDay)] : undefined,
+            sessionSlot: HALF_DAY_SLOTS.find((s) => s.value === data.sessionSlot)?.label,
+          },
           source: "website_registration",
         });
       } catch (e) {
@@ -325,6 +343,7 @@ const HomeschoolingProgram = () => {
               registrationId: result.id,
               package: packageName,
               sessionDay: sessionDay ? WEEKDAY_LABELS[Number(sessionDay)] : undefined,
+              sessionSlot: HALF_DAY_SLOTS.find((s) => s.value === data.sessionSlot)?.label,
               children: data.children.map((child, index) => ({
                 childName: child.name,
                 selectedDates: child.selectedDates,
@@ -616,6 +635,30 @@ const HomeschoolingProgram = () => {
                 <p className="text-sm text-muted-foreground">
                   This package attends {packageDays.map((d) => WEEKDAY_LABELS[d]).join(" and ")} each week.
                 </p>
+              )}
+
+              {/* Half-day slot choice (Explorers) */}
+              {selectedPackage?.sessionType === "half" && (
+                <div>
+                  <Label className="text-base font-medium">Preferred Time Slot *</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Half-day sessions run 9:00 AM – 1:00 PM or 12:00 – 4:00 PM.
+                  </p>
+                  <RadioGroup
+                    value={sessionSlot || ""}
+                    onValueChange={(v) => setValue("sessionSlot", v, { shouldValidate: true })}
+                    className="mt-3 flex gap-6"
+                  >
+                    {HALF_DAY_SLOTS.map((slot) => (
+                      <div key={slot.value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={slot.value} id={`session-slot-${slot.value}`} />
+                        <Label htmlFor={`session-slot-${slot.value}`} className="cursor-pointer">
+                          {slot.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
               )}
 
               {/* Children */}

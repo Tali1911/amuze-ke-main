@@ -428,6 +428,7 @@ const campTypeToCalendarProgram: Record<string, string[]> = {
   'mid-term': ['mid-term-feb', 'mid-term-may', 'mid-term-oct'],
   'day-camps': ['day-camps'],
   'little-forest': ['little-forest'],
+  'homeschooling': ['homeschooling'],
 };
 
 /**

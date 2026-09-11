@@ -13,7 +13,7 @@ export interface CampChild {
 export interface CampRegistration {
   id?: string;
   registration_number?: string;
-  camp_type: 'easter' | 'summer' | 'end-year' | 'mid-term-1' | 'mid-term-2' | 'mid-term-3' | 'mid-term-october' | 'mid-term-feb-march' | 'day-camps' | 'little-forest';
+  camp_type: 'easter' | 'summer' | 'end-year' | 'mid-term-1' | 'mid-term-2' | 'mid-term-3' | 'mid-term-october' | 'mid-term-feb-march' | 'day-camps' | 'little-forest' | 'homeschooling';
   parent_name: string;
   email: string;
   phone: string;

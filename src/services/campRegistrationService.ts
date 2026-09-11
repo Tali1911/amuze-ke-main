@@ -134,6 +134,8 @@ export const campRegistrationService = {
       switch (campType) {
         case 'little-forest':
           return 'LF';
+        case 'homeschooling':
+          return 'HS';
         case 'day-camps':
           return 'DC';
         case 'holiday-camp':

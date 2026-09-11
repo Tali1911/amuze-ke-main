@@ -54,6 +54,14 @@ export const programTypes: ProgramType[] = [
     category: 'Day Programs' 
   },
   
+  // Homeschool
+  {
+    value: 'homeschooling',
+    label: 'Homeschool Programme (Wed/Fri)',
+    url: '/programs/homeschooling',
+    category: 'Day Programs'
+  },
+
   // Experiences
   { 
     value: 'kenyan-experiences', 

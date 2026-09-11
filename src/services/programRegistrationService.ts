@@ -71,7 +71,7 @@ export const homeschoolingService = {
       parent_name: data.parentName,
       children: data.children,
       package: data.package,
-      focus: data.focus,
+      focus: [],
       transport: data.transport || false,
       meal: data.meal || false,
       allergies: data.allergies || null,

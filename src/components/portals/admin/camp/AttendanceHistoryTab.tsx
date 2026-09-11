@@ -223,6 +223,7 @@ export const AttendanceHistoryTab: React.FC = () => {
                   <SelectItem value="mid-term-october">Mid-Term Camp (October)</SelectItem>
                   <SelectItem value="day-camps">Day Camps</SelectItem>
                   <SelectItem value="little-forest">Little Forest</SelectItem>
+                  <SelectItem value="homeschooling">Homeschool</SelectItem>
                 </SelectContent>
               </Select>
 

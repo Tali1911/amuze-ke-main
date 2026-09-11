@@ -17,6 +17,12 @@ interface HomeschoolingPackage {
   name: string;
   frequency: string;
   price: string;
+  /** Numeric per-session price used to total up a registration. */
+  pricePerSession?: number;
+  hours?: string;
+  days?: number[];
+  dayChoice?: 'single' | 'all';
+  sessionType?: 'half' | 'full';
   description: string;
   features: string[];
 }
@@ -46,20 +52,32 @@ interface HomeschoolingPageEditorProps {
 
 const defaultPackages: HomeschoolingPackage[] = [
   {
-    id: 'explorer',
-    name: 'Explorer Package',
-    frequency: '1 session/week',
-    price: 'KES 8,000/month',
-    description: 'Perfect for families wanting regular outdoor learning.',
-    features: ['Weekly 3-hour sessions', 'Nature journaling', 'Basic bushcraft', 'Group activities']
+    id: 'explorers',
+    name: 'Explorers Package',
+    frequency: 'Once a week — choose either Wednesday or Friday',
+    hours: 'Half Day · 9:00 AM – 1:00 PM',
+    price: 'KES 2,500/session',
+    pricePerSession: 2500,
+    days: [3, 5],
+    dayChoice: 'single',
+    sessionType: 'half',
+    description:
+      'A single, focused weekly session moving through all five learning segments, with signature activities introduced in a fun, exploratory format.',
+    features: ['One session a week', 'All five learning segments', 'Exploratory signature activity']
   },
   {
-    id: 'adventurer',
-    name: 'Adventurer Package',
-    frequency: '2 sessions/week',
-    price: 'KES 14,000/month',
-    description: 'Deeper immersion in nature-based education.',
-    features: ['Twice weekly sessions', 'Advanced skills', 'Personal mentoring', 'Portfolio building']
+    id: 'adventure',
+    name: 'Adventure Package',
+    frequency: 'Twice a week — Wednesday and Friday',
+    hours: 'Full Day · 9:00 AM – 4:00 PM',
+    price: 'KES 4,000/session',
+    pricePerSession: 4000,
+    days: [3, 5],
+    dayChoice: 'all',
+    sessionType: 'full',
+    description:
+      'Two sessions a week, each day carrying a different focus, including a 20-minute professional training block for signature activities.',
+    features: ['Two sessions a week', 'Different focus each day', '20-minute professional training block']
   }
 ];
 
@@ -146,7 +164,12 @@ export const HomeschoolingPageEditor: React.FC<HomeschoolingPageEditorProps> = (
         id: `package-${Date.now()}`,
         name: 'New Package',
         frequency: '1 session/week',
-        price: 'KES 0/month',
+        price: 'KES 0/session',
+        pricePerSession: 0,
+        hours: 'Half Day · 9:00 AM – 1:00 PM',
+        days: [3, 5],
+        dayChoice: 'single',
+        sessionType: 'half',
         description: 'Package description',
         features: ['Feature 1']
       }]
@@ -304,6 +327,35 @@ export const HomeschoolingPageEditor: React.FC<HomeschoolingPageEditorProps> = (
                     <div>
                       <Label>Frequency</Label>
                       <Input value={pkg.frequency} onChange={e => updatePackage(index, 'frequency', e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Hours</Label>
+                      <Input value={pkg.hours || ''} onChange={e => updatePackage(index, 'hours', e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Price per session (KES, number)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={pkg.pricePerSession ?? 0}
+                        onChange={e => updatePackage(index, 'pricePerSession', Number(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Session length</Label>
+                      <Input
+                        value={pkg.sessionType || 'half'}
+                        onChange={e => updatePackage(index, 'sessionType', e.target.value === 'full' ? 'full' : 'half')}
+                        placeholder="half or full"
+                      />
+                    </div>
+                    <div>
+                      <Label>Day choice</Label>
+                      <Input
+                        value={pkg.dayChoice || 'single'}
+                        onChange={e => updatePackage(index, 'dayChoice', e.target.value === 'all' ? 'all' : 'single')}
+                        placeholder="single or all"
+                      />
                     </div>
                   </div>
                   <div>

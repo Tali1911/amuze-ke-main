@@ -688,6 +688,7 @@ export const AttendanceMarkingTab: React.FC = () => {
                 <SelectItem value="summer">Summer</SelectItem>
                 <SelectItem value="end-year">End Year</SelectItem>
                 <SelectItem value="little-forest">Little Forest</SelectItem>
+                <SelectItem value="homeschooling">Homeschool</SelectItem>
               </SelectContent>
             </Select>
             <Select value={locationFilter} onValueChange={setLocationFilter}>

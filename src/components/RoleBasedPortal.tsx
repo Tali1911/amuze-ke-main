@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { ROLES } from '@/services/roleService';
+import { parseTabKey } from '@/services/tabAccessService';
 import CEODashboard from './portals/CEODashboard';
 import MarketingPortal from './portals/MarketingPortal';
 import HRPortal from './portals/HRPortal';
@@ -23,9 +24,17 @@ const RoleBasedPortal = () => {
     return <div>Loading...</div>;
   }
 
-  // Map roles to their respective portal components
+  // Map roles to their respective portal components.
+  // Delegated tabs from another department arrive as "PORTAL:tabId".
   const renderPortalContent = () => {
-    switch (user.role) {
+    const delegated = parseTabKey(activeTab);
+    const portal = delegated ? delegated.portal : user.role;
+    const tab = delegated ? delegated.tabId : activeTab;
+    return renderPortal(portal, tab);
+  };
+
+  const renderPortal = (portal: string, activeTab: string) => {
+    switch (portal) {
       case ROLES.CEO:
         return <CEODashboard activeTab={activeTab} />;
       case ROLES.MARKETING:

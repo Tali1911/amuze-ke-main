@@ -1,0 +1,3 @@
+- [x] Add record counts and partial/complete/error status to All, Attendance, and Daily Ops.
+- [x] Check compilation, lint, patch formatting, and browser-rendered loading states; compilation and new-file lint pass, repository lint has existing failures.
+- [ ] Verify live signed-in tab loads — blocked because the external project's preview login is not available in the sandbox.

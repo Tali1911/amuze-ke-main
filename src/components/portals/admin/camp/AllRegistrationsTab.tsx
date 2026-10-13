@@ -24,6 +24,8 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { registrationInDateWindow } from '@/utils/registrationDate';
 import { promptForPaymentMethod } from '@/utils/promptPaymentMethod';
+import { useRegistrationLoadProgress } from '@/hooks/useRegistrationLoadProgress';
+import { RegistrationLoadStatus } from './RegistrationLoadStatus';
 
 type DocType = 'quotation' | 'invoice' | 'paid';
 const deriveDocType = (reg: CampRegistration): DocType => {
@@ -36,6 +38,7 @@ const deriveDocType = (reg: CampRegistration): DocType => {
 export const AllRegistrationsTab: React.FC = () => {
   const [registrations, setRegistrations] = useState<CampRegistration[]>([]);
   const [loading, setLoading] = useState(true);
+  const { progress, begin } = useRegistrationLoadProgress();
   const [searchTerm, setSearchTerm] = useState('');
   const [campTypeFilter, setCampTypeFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
@@ -58,6 +61,7 @@ export const AllRegistrationsTab: React.FC = () => {
   const [customExportOpen, setCustomExportOpen] = useState(false);
 
   const loadRegistrations = async () => {
+    const request = begin();
     try {
       setLoading(true);
       const filters: any = {};
@@ -70,9 +74,8 @@ export const AllRegistrationsTab: React.FC = () => {
       //   - invoices/paid bucket by `converted_to_invoice_at`
       // This is what makes "today" on the All page match the Attendance page.
 
-      let data = await campRegistrationService.getAllRegistrations(filters);
-
-      // Apply client-side filters
+      const applyFilters = (input: CampRegistration[]) => {
+      let data = input;
       if (registrationTypeFilter !== 'all') {
         data = data.filter(reg => reg.registration_type === registrationTypeFilter);
       }
@@ -96,7 +99,23 @@ export const AllRegistrationsTab: React.FC = () => {
       if (maxAmount) {
         data = data.filter(reg => reg.total_amount <= parseFloat(maxAmount));
       }
+      return data;
+      };
 
+      // Show the newest registrations as soon as the first batch arrives;
+      // the rest stream in behind it.
+      const loaded = await campRegistrationService.getAllRegistrations(filters, {
+        onBatch: (soFar) => {
+          if (!request.isCurrent()) return;
+          request.update(soFar.length);
+          setRegistrations(applyFilters(soFar));
+          setLoading(false);
+        },
+      });
+
+      if (!request.isCurrent()) return;
+      const data = applyFilters(loaded);
+      request.complete(loaded.length);
       setRegistrations(data);
 
       // Keep the open details dialog in sync with the freshly-loaded list,
@@ -108,10 +127,12 @@ export const AllRegistrationsTab: React.FC = () => {
         return refreshed || prev;
       });
     } catch (error) {
+      if (!request.isCurrent()) return;
+      request.fail();
       console.error('Error loading registrations:', error);
       toast.error('Failed to load registrations');
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
   };
 
@@ -125,15 +146,20 @@ export const AllRegistrationsTab: React.FC = () => {
       return;
     }
 
+    const request = begin();
     try {
       setLoading(true);
       const data = await campRegistrationService.searchRegistrations(searchTerm);
+      if (!request.isCurrent()) return;
+      request.complete(data.length);
       setRegistrations(data);
     } catch (error) {
+      if (!request.isCurrent()) return;
+      request.fail();
       console.error('Error searching:', error);
       toast.error('Search failed');
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
   };
 
@@ -322,6 +348,7 @@ export const AllRegistrationsTab: React.FC = () => {
 
   return (
     <>
+      <RegistrationLoadStatus progress={progress} />
       <Card>
         <CardHeader className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

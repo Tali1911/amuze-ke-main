@@ -11,9 +11,11 @@ import { toast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CheckCircle, XCircle, Clock, Users, UserCheck, UserX, Edit, Settings2, Trash2, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Users, UserCheck, UserX, Edit, Settings2, Trash2, AlertTriangle, KeyRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { ROLES } from '@/services/roleService';
+import { ROLES, getRoleDisplayName } from '@/services/roleService';
+import { PORTAL_ROLES } from '@/components/PortalSidebar';
+import TabAccessDialog from './TabAccessDialog';
 import { auditLogService } from '@/services/auditLogService';
 import { coachAccessService, CAMP_TABS, CampTabId, ALL_TAB_IDS } from '@/services/coachAccessService';
 import PreauthorizeStaff from './PreauthorizeStaff';
@@ -53,6 +55,7 @@ const UserManagement: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [coachAccessMap, setCoachAccessMap] = useState<Record<string, { granted: boolean; visibleTabs: CampTabId[] }>>({});
   const [togglingAccess, setTogglingAccess] = useState<string | null>(null);
+  const [tabAccessTarget, setTabAccessTarget] = useState<{ scope: 'role' | 'user'; scopeId: string; role: string; title: string } | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -485,6 +488,32 @@ const UserManagement: React.FC = () => {
         </Card>
       )}
 
+      {/* Department tab access */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Department Tab Access</CardTitle>
+          <CardDescription>
+            Choose which tabs each department sees. You can also give a single staff member extra or fewer tabs with "Tab Access" in the list below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          {PORTAL_ROLES.filter(r => r !== ROLES.ADMIN).map(r => (
+            <Button key={r} variant="outline" size="sm" onClick={() => setTabAccessTarget({ scope: 'role', scopeId: r, role: r, title: getRoleDisplayName(r) })}>
+              <KeyRound className="h-4 w-4 mr-1" />
+              {getRoleDisplayName(r)}
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
+
+      {tabAccessTarget && (
+        <TabAccessDialog
+          open={!!tabAccessTarget}
+          onOpenChange={o => { if (!o) setTabAccessTarget(null); }}
+          {...tabAccessTarget}
+        />
+      )}
+
       {/* Approved Users Table */}
       <Card>
         <CardHeader>
@@ -568,6 +597,16 @@ const UserManagement: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
+                      {user.role !== 'admin' && user.role !== 'none' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setTabAccessTarget({ scope: 'user', scopeId: user.id, role: user.role, title: user.full_name || user.email })}
+                        >
+                          <KeyRound className="h-4 w-4 mr-1" />
+                          Tab Access
+                        </Button>
+                      )}
                       <Button size="sm" variant="outline" onClick={() => handleChangeRole(user)}>
                         <Edit className="h-4 w-4 mr-1" />
                         Change Role

@@ -1,3 +1,4 @@
+import { getCachedList, invalidateCacheOnWrites } from './registrationCache';
 import { supabase } from '@/integrations/supabase/client';
 import { CampRegistration, CampChild } from '@/types/campRegistration';
 import { Tables } from '@/integrations/supabase/types';
@@ -54,16 +55,20 @@ const withResolvedPaymentStatuses = async (registrations: CampRegistration[]): P
   let data: any[] = [];
   try {
     // Chunk the id list (URL length) and page each chunk (row cap).
-    for (const idsChunk of chunk(ids, 150)) {
-      const rows = await fetchAllPages((from, to) =>
-        (supabase as any)
-          .from('payments')
-          .select('registration_id, amount, status, source, payment_method, payment_reference, created_at')
-          .in('registration_id', idsChunk)
-          .order('created_at', { ascending: false })
-          .range(from, to)
-      );
-      data = data.concat(rows);
+    // Chunks run in parallel batches of 6 instead of one after another.
+    const chunks = chunk(ids, 150);
+    for (const group of chunk(chunks, 6)) {
+      const results = await Promise.all(group.map((idsChunk) =>
+        fetchAllPages((from, to) =>
+          (supabase as any)
+            .from('payments')
+            .select('registration_id, amount, status, source, payment_method, payment_reference, created_at')
+            .in('registration_id', idsChunk)
+            .order('created_at', { ascending: false })
+            .range(from, to)
+        )
+      ));
+      results.forEach((rows) => { data = data.concat(rows); });
     }
   } catch (error) {
     console.error('Error resolving registration payments:', error);
@@ -229,7 +234,20 @@ export const campRegistrationService = {
     paymentStatus?: string;
     startDate?: string;
     endDate?: string;
-  }) {
+  }, options?: { fresh?: boolean; onBatch?: (soFar: CampRegistration[]) => void }) {
+    return getCachedList(
+      `camp:${JSON.stringify(filters || {})}`,
+      () => campRegistrationService._fetchAllRegistrations(filters, options?.onBatch),
+      options?.fresh,
+    );
+  },
+
+  async _fetchAllRegistrations(filters?: {
+    campType?: string;
+    paymentStatus?: string;
+    startDate?: string;
+    endDate?: string;
+  }, onBatch?: (soFar: CampRegistration[]) => void): Promise<CampRegistration[]> {
     const buildQuery = (from: number, to: number) => {
       let query = supabase
         .from('camp_registrations')
@@ -249,13 +267,24 @@ export const campRegistrationService = {
       return query;
     };
 
-    const data = await fetchAllPages(buildQuery);
-
-    let registrations = await withResolvedPaymentStatuses(data.map(fromDb));
-    if (filters?.paymentStatus) {
-      registrations = registrations.filter((reg) => reg.payment_status === filters.paymentStatus);
+    // Progressive loading: newest registrations first in a small batch so the
+    // page can show them immediately, then larger batches in the background.
+    const keep = (regs: CampRegistration[]) =>
+      filters?.paymentStatus ? regs.filter((reg) => reg.payment_status === filters.paymentStatus) : regs;
+    const all: CampRegistration[] = [];
+    let from = 0;
+    for (let page = 0; ; page++) {
+      const size = page === 0 ? 100 : PAGE_SIZE;
+      const { data, error } = await buildQuery(from, from + size - 1);
+      if (error) throw error;
+      const batch = (data || []) as DbCampRegistration[];
+      const resolved = await withResolvedPaymentStatuses(batch.map(fromDb));
+      all.push(...resolved);
+      from += batch.length;
+      try { onBatch?.(keep([...all])); } catch (e) { console.warn('onBatch failed', e); }
+      if (batch.length < size) break;
     }
-    return registrations;
+    return keep(all);
   },
 
 
@@ -609,3 +638,5 @@ export const campRegistrationService = {
     return true;
   },
 };
+
+invalidateCacheOnWrites(campRegistrationService as Record<string, any>);

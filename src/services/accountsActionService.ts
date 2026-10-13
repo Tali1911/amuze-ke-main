@@ -1,3 +1,4 @@
+import { invalidateCacheOnWrites } from './registrationCache';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface AccountsActionItem {
@@ -251,3 +252,5 @@ export const accountsActionService = {
     return item;
   },
 };
+
+invalidateCacheOnWrites(accountsActionService as Record<string, any>);

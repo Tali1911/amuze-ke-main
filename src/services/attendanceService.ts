@@ -1,3 +1,4 @@
+import { invalidateCacheOnWrites } from './registrationCache';
 import { supabase } from '@/integrations/supabase/client';
 import { CampAttendance, AttendanceRecord } from '@/types/campRegistration';
 
@@ -246,3 +247,5 @@ export const attendanceService = {
     return ((data && data[0]) || null) as CampAttendance | null;
   },
 };
+
+invalidateCacheOnWrites(attendanceService as Record<string, any>);

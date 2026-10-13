@@ -1,3 +1,4 @@
+import { invalidateCacheOnWrites } from './registrationCache';
 import { supabase } from '@/integrations/supabase/client';
 import { CampRegistration, CampChild } from '@/types/campRegistration';
 import { InvoiceWithItems, InvoiceItem } from './invoiceService';
@@ -109,3 +110,5 @@ export const quotationService = {
     };
   },
 };
+
+invalidateCacheOnWrites(quotationService as Record<string, any>);

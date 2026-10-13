@@ -28,6 +28,8 @@ import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { QRScannerDialog } from '@/components/attendance/QRScannerDialog';
 import { QuickGroundRegistration } from './QuickGroundRegistration';
 import { promptForPaymentMethod } from '@/utils/promptPaymentMethod';
+import { useRegistrationLoadProgress } from '@/hooks/useRegistrationLoadProgress';
+import { RegistrationLoadStatus } from './RegistrationLoadStatus';
 
 const CAMP_TYPES = [
   { value: 'all', label: 'All Camps' },
@@ -47,6 +49,7 @@ export const DailyOperationsView: React.FC = () => {
   const [campTypeFilter, setCampTypeFilter] = useState<string>('all');
   const [registrations, setRegistrations] = useState<CampRegistration[]>([]);
   const [loading, setLoading] = useState(false);
+  const { progress, begin } = useRegistrationLoadProgress();
   const [attendanceStatus, setAttendanceStatus] = useState<Record<string, any>>({});
   const [scannerOpen, setScannerOpen] = useState(false);
   const [groundRegOpen, setGroundRegOpen] = useState(false);
@@ -58,30 +61,61 @@ export const DailyOperationsView: React.FC = () => {
   const [pendingCheckout, setPendingCheckout] = useState<{ attendanceId: string; childName: string; registrationId: string } | null>(null);
 
   const loadTodaysRegistrations = async () => {
+    const request = begin();
     try {
       setLoading(true);
       const filters: any = {};
       if (campTypeFilter !== 'all') filters.campType = campTypeFilter;
 
-      const allRegs = await campRegistrationService.getAllRegistrations(filters);
+      const allRegs = await campRegistrationService.getAllRegistrations(filters, {
+        onBatch: (soFar) => {
+          if (!request.isCurrent()) return;
+          request.update(soFar.length);
+          setRegistrations(soFar.filter(r => r.status === 'active'));
+          setLoading(false);
+        },
+      });
+      if (!request.isCurrent()) return;
       const activeRegs = allRegs.filter(r => r.status === 'active');
       setRegistrations(activeRegs);
 
-      // Load attendance status
+      // Load today's attendance in one query (paginated) instead of one request per child
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const rows: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+          .from('camp_attendance')
+          .select('*')
+          .eq('attendance_date', today)
+          .order('check_in_time', { ascending: true })
+          .range(from, from + 999);
+        if (error) throw error;
+        rows.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      const byKey: Record<string, any> = {};
+      for (const row of rows) {
+        const k = `${row.registration_id}-${row.child_name}`;
+        if (!byKey[k]) byKey[k] = row; // earliest check-in wins, matching previous behaviour
+      }
       const statusMap: Record<string, any> = {};
       for (const reg of activeRegs) {
-        for (const child of reg.children) {
+        for (const child of (Array.isArray(reg.children) ? reg.children : [])) {
           const key = `${reg.id}-${child.childName}`;
-          const attendance = await attendanceService.hasCheckedInToday(reg.id!, child.childName);
-          statusMap[key] = attendance;
+          statusMap[key] = byKey[key] || null;
         }
       }
+      if (!request.isCurrent()) return;
       setAttendanceStatus(statusMap);
+      request.complete(allRegs.length);
     } catch (error) {
+      if (!request.isCurrent()) return;
+      request.fail();
       console.error('Error loading registrations:', error);
       toast.error('Failed to load registrations');
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
   };
 
@@ -346,6 +380,7 @@ export const DailyOperationsView: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      <RegistrationLoadStatus progress={progress} />
       {/* Header with actions */}
       <Card>
         <CardHeader className="pb-3">

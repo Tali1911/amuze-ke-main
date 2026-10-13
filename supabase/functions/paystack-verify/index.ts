@@ -60,7 +60,11 @@ Deno.serve(async (req) => {
     // ---------- FAILURE / CANCEL LOGGING ----------
     if (logFailure) {
       const failureReason = String(body.failureReason || 'cancelled').slice(0, 200)
-      const attemptedAmount = Math.max(0, Math.round(Number(body.attemptedAmountKES) || 0))
+      const regTotal = Math.max(0, (Number(reg.total_amount) || 0) - (Number(reg.discount_amount) || 0))
+      const attemptedAmount = Math.min(
+        regTotal,
+        Math.max(0, Math.round(Number(body.attemptedAmountKES) || 0))
+      )
       try {
         await supabase.from('payments').insert({
           registration_id: registrationId,
@@ -132,6 +136,42 @@ Deno.serve(async (req) => {
     }
 
     const tx = verifyJson.data
+    const reject = (error: string, status = 400) =>
+      new Response(JSON.stringify({ success: false, error }), {
+        status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+
+    // Security: currency must be KES
+    if (String(tx.currency || '').toUpperCase() !== 'KES') {
+      console.error('Currency mismatch', tx.currency)
+      return reject('Unsupported payment currency')
+    }
+
+    // Security: the Paystack transaction must belong to this registration
+    let meta: any = tx.metadata
+    if (typeof meta === 'string') {
+      try { meta = JSON.parse(meta) } catch { meta = {} }
+    }
+    const metaRegId = String(meta?.registrationId || '').trim()
+    if (!metaRegId || metaRegId !== registrationId) {
+      console.error('Registration mismatch for reference', reference)
+      return reject('Payment does not belong to this registration', 403)
+    }
+
+    // Security: a reference may only ever be applied to one registration
+    const { data: otherUse } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('payment_reference', reference)
+      .eq('status', 'completed')
+      .neq('registration_id', registrationId)
+      .limit(1)
+    if (otherUse && otherUse.length > 0) {
+      console.error('Reference reuse attempt', reference)
+      return reject('Payment reference already used', 409)
+    }
+
     const thisAmountKES = Math.round((Number(tx.amount) || 0) / 100)
     const channel = String(tx.channel || '').toLowerCase()
     const paymentMethod =

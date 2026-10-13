@@ -29,6 +29,8 @@ import { QRScannerDialog } from '@/components/attendance/QRScannerDialog';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { displayLocation } from '@/lib/locationDisplay';
+import { useRegistrationLoadProgress } from '@/hooks/useRegistrationLoadProgress';
+import { RegistrationLoadStatus } from './RegistrationLoadStatus';
 
 interface ExpectedChild {
   registration: CampRegistration;
@@ -44,6 +46,7 @@ export const AttendanceMarkingTab: React.FC = () => {
   const [registrations, setRegistrations] = useState<CampRegistration[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const { progress, begin } = useRegistrationLoadProgress();
   const [attendanceStatus, setAttendanceStatus] = useState<Record<string, any>>({});
   const [scannerOpen, setScannerOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -79,8 +82,7 @@ export const AttendanceMarkingTab: React.FC = () => {
 
       if (error) {
         console.error('Error batch loading attendance (chunk', i, '):', error);
-        // Don't abort the whole batch — keep partial data
-        continue;
+        throw error;
       }
 
       for (const record of (data || [])) {
@@ -92,6 +94,8 @@ export const AttendanceMarkingTab: React.FC = () => {
   }, []);
 
   const loadRegistrations = useCallback(async () => {
+    const request = begin();
+    let attendanceComplete = false;
     try {
       if (!initialLoaded) setLoading(true);
       const filters: any = {};
@@ -102,7 +106,18 @@ export const AttendanceMarkingTab: React.FC = () => {
       let lastErr: any = null;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          allRegs = await campRegistrationService.getAllRegistrations(filters);
+          allRegs = await campRegistrationService.getAllRegistrations(filters, {
+            onBatch: (soFar) => {
+              if (!request.isCurrent()) return;
+              request.update(soFar.length);
+              const partial = soFar.filter(r => r.status === 'active');
+              setRegistrations(partial);
+              loadAttendanceBatch(partial, selectedDate).then(status => {
+                if (request.isCurrent() && !attendanceComplete) setAttendanceStatus(status);
+              }).catch(() => {});
+              setLoading(false);
+            },
+          });
           lastErr = null;
           break;
         } catch (e) {
@@ -111,14 +126,20 @@ export const AttendanceMarkingTab: React.FC = () => {
         }
       }
       if (lastErr) throw lastErr;
+      if (!request.isCurrent()) return;
 
       const activeRegs = allRegs.filter(r => r.status === 'active');
       setRegistrations(activeRegs);
 
       // Batch load attendance instead of N+1 queries
       const statusMap = await loadAttendanceBatch(activeRegs, selectedDate);
+      if (!request.isCurrent()) return;
+      attendanceComplete = true;
       setAttendanceStatus(statusMap);
+      request.complete(allRegs.length);
     } catch (error: any) {
+      if (!request.isCurrent()) return;
+      request.fail();
       console.error('Error loading registrations:', error);
       toast.error(
         error?.message
@@ -126,10 +147,12 @@ export const AttendanceMarkingTab: React.FC = () => {
           : 'Failed to load registrations. Please refresh the page.'
       );
     } finally {
-      setLoading(false);
-      setInitialLoaded(true);
+      if (request.isCurrent()) {
+        setLoading(false);
+        setInitialLoaded(true);
+      }
     }
-  }, [campTypeFilter, selectedDate, initialLoaded, loadAttendanceBatch]);
+  }, [campTypeFilter, selectedDate, initialLoaded, loadAttendanceBatch, begin]);
 
   useEffect(() => {
     loadRegistrations();
@@ -602,6 +625,7 @@ export const AttendanceMarkingTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <RegistrationLoadStatus progress={progress} />
       {/* Header with stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>

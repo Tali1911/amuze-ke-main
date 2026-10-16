@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { displayLocation } from '@/lib/locationDisplay';
 import { useRegistrationLoadProgress } from '@/hooks/useRegistrationLoadProgress';
 import { RegistrationLoadStatus } from './RegistrationLoadStatus';
+import { AllergyCell, MediaConsentCell } from './HealthConsentCells';
 
 interface ExpectedChild {
   registration: CampRegistration;
@@ -489,6 +490,8 @@ export const AttendanceMarkingTab: React.FC = () => {
                   <TableHead>Parent</TableHead>
                   <TableHead>Child Name</TableHead>
                   <TableHead>Age</TableHead>
+                  <TableHead>Allergies</TableHead>
+                  <TableHead>Media Consent</TableHead>
                    <TableHead>Session</TableHead>
                    <TableHead>Location</TableHead>
                    <TableHead>Registered Dates</TableHead>
@@ -539,6 +542,8 @@ export const AttendanceMarkingTab: React.FC = () => {
                         })()}
                       </TableCell>
                       <TableCell>{item.child.ageRange}</TableCell>
+                      <TableCell><AllergyCell child={item.child} /></TableCell>
+                      <TableCell><MediaConsentCell consent={item.registration.consent_given} /></TableCell>
                       <TableCell>
                         <Badge variant={item.session === 'full' ? 'default' : 'outline'}>
                           {item.session === 'full' ? 'Full Day' : item.session === 'archery' ? 'Archery' : 'Half Day'}

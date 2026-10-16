@@ -30,6 +30,7 @@ import { QuickGroundRegistration } from './QuickGroundRegistration';
 import { promptForPaymentMethod } from '@/utils/promptPaymentMethod';
 import { useRegistrationLoadProgress } from '@/hooks/useRegistrationLoadProgress';
 import { RegistrationLoadStatus } from './RegistrationLoadStatus';
+import { AllergyCell, MediaConsentCell } from './HealthConsentCells';
 
 const CAMP_TYPES = [
   { value: 'all', label: 'All Camps' },
@@ -481,6 +482,8 @@ export const DailyOperationsView: React.FC = () => {
                   <TableRow>
                     <TableHead className="w-[100px]">Reg #</TableHead>
                     <TableHead>Child</TableHead>
+                    <TableHead>Allergies</TableHead>
+                    <TableHead>Media Consent</TableHead>
                     <TableHead className="hidden sm:table-cell">Parent</TableHead>
                     <TableHead className="hidden md:table-cell">Camp</TableHead>
                     <TableHead>Payment</TableHead>
@@ -503,6 +506,8 @@ export const DailyOperationsView: React.FC = () => {
                           <div className="font-medium">{child.childName}</div>
                           <div className="text-xs text-muted-foreground">{child.ageRange}</div>
                         </TableCell>
+                        <TableCell><AllergyCell child={child} /></TableCell>
+                        <TableCell><MediaConsentCell consent={reg.consent_given} /></TableCell>
                         <TableCell className="hidden sm:table-cell">
                           <div>{reg.parent_name}</div>
                           <div className="text-xs text-muted-foreground">{reg.phone}</div>

@@ -12,6 +12,8 @@ import { Plus, Receipt, Clock, CheckCircle, XCircle, Trash2, Upload, Paperclip, 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { financialService, Expense, Budget } from '@/services/financialService';
 import { receiptService } from '@/services/receiptService';
+import { parseReceiptUrls, joinReceiptUrls, receiptLabel } from '@/utils/receipts';
+import ExpenseReceiptsCell from './ExpenseReceiptsCell';
 import { toast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import { ACTIVITY_CATEGORIES, DEPARTMENT_LIST, smartCapitalize } from '@/lib/activityCategories';
@@ -236,7 +238,7 @@ const ExpenseManagement = () => {
               Submit Expense
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md mx-4 sm:mx-auto">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto">
             <DialogHeader>
               <DialogTitle>Submit Expense</DialogTitle>
               <DialogDescription>Submit an expense against a budget allocation</DialogDescription>
@@ -361,43 +363,58 @@ const ExpenseManagement = () => {
                 />
               </div>
               <div>
-                <Label>Receipt (optional)</Label>
-                {formData.receipt_url ? (
-                  <div className="flex items-center gap-2 p-2 border rounded mt-1">
+                <Label>Receipts (optional)</Label>
+                {parseReceiptUrls(formData.receipt_url).map((url, i) => (
+                  <div key={url} className="flex items-center gap-2 p-2 border rounded mt-1">
                     <Paperclip className="h-4 w-4 text-muted-foreground" />
-                    <a href={formData.receipt_url} target="_blank" rel="noreferrer" className="text-sm hover:underline truncate flex-1">
-                      View attached receipt
+                    <a href={url} target="_blank" rel="noreferrer" className="text-sm hover:underline truncate flex-1">
+                      {receiptLabel(url, i)}
                     </a>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setFormData({ ...formData, receipt_url: '' })}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFormData(prev => ({
+                        ...prev,
+                        receipt_url: joinReceiptUrls(parseReceiptUrls(prev.receipt_url).filter(u => u !== url)),
+                      }))}
+                    >
                       Remove
                     </Button>
                   </div>
-                ) : (
-                  <label className="flex items-center gap-2 p-2 border border-dashed rounded mt-1 cursor-pointer hover:bg-muted/40">
-                    <Upload className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">{uploadingReceipt ? 'Uploading…' : 'Click to upload receipt (JPG/PNG/PDF)'}</span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      disabled={uploadingReceipt}
-                      onChange={async (e) => {
-                        const f = e.target.files?.[0];
-                        if (!f) return;
-                        setUploadingReceipt(true);
-                        try {
+                ))}
+                <label className="flex items-center gap-2 p-2 border border-dashed rounded mt-1 cursor-pointer hover:bg-muted/40">
+                  <Upload className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    {uploadingReceipt ? 'Uploading…' : parseReceiptUrls(formData.receipt_url).length ? 'Add more receipts' : 'Click to upload receipts (JPG/PNG/PDF)'}
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    disabled={uploadingReceipt}
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (!files.length) return;
+                      setUploadingReceipt(true);
+                      try {
+                        for (const f of files) {
                           const { url } = await receiptService.uploadFile(f);
-                          setFormData(prev => ({ ...prev, receipt_url: url }));
-                        } catch (err: any) {
-                          toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
-                        } finally {
-                          setUploadingReceipt(false);
-                          e.target.value = '';
+                          setFormData(prev => ({
+                            ...prev,
+                            receipt_url: joinReceiptUrls([...parseReceiptUrls(prev.receipt_url), url]),
+                          }));
                         }
-                      }}
-                    />
-                  </label>
-                )}
+                      } catch (err: any) {
+                        toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+                      } finally {
+                        setUploadingReceipt(false);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </label>
               </div>
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -484,35 +501,7 @@ const ExpenseManagement = () => {
                           <span className="text-muted-foreground">{new Date(expense.expense_date).toLocaleDateString()}</span>
                         </div>
                         <div className="flex gap-2 pt-2 items-center">
-                          {expense.receipt_url ? (
-                            <a href={expense.receipt_url} target="_blank" rel="noreferrer" className="text-xs flex items-center gap-1 text-primary hover:underline">
-                              <Paperclip className="h-3 w-3" /> Receipt
-                            </a>
-                          ) : (
-                            <label className="text-xs flex items-center gap-1 text-muted-foreground cursor-pointer">
-                              <Upload className="h-3 w-3" /> {rowUploadingId === expense.id ? 'Uploading…' : 'Attach'}
-                              <input
-                                type="file"
-                                className="hidden"
-                                accept="image/jpeg,image/png,image/webp,application/pdf"
-                                onChange={async (e) => {
-                                  const f = e.target.files?.[0];
-                                  if (!f) return;
-                                  setRowUploadingId(expense.id);
-                                  try {
-                                    const { url } = await receiptService.uploadFile(f);
-                                    await financialService.updateExpense(expense.id, { receipt_url: url });
-                                    await loadData();
-                                  } catch (err: any) {
-                                    toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
-                                  } finally {
-                                    setRowUploadingId(null);
-                                    e.target.value = '';
-                                  }
-                                }}
-                              />
-                            </label>
-                          )}
+                          <ExpenseReceiptsCell expenseId={expense.id} receiptUrl={expense.receipt_url} onChanged={loadData} />
                           {expense.status === 'pending' && (
                             <>
                               <Button variant="outline" size="sm" onClick={() => handleApproveExpense(expense)}>
@@ -554,35 +543,7 @@ const ExpenseManagement = () => {
                             <TableCell className="hidden md:table-cell">{expense.vendor || '-'}</TableCell>
                             <TableCell>KES {Number(expense.amount).toLocaleString()}</TableCell>
                             <TableCell>
-                              {expense.receipt_url ? (
-                                <a href={expense.receipt_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                                  <ExternalLink className="h-3 w-3" /> View
-                                </a>
-                              ) : (
-                                <label className="inline-flex items-center gap-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                                  <Upload className="h-3 w-3" /> {rowUploadingId === expense.id ? 'Uploading…' : 'Attach'}
-                                  <input
-                                    type="file"
-                                    className="hidden"
-                                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                                    onChange={async (e) => {
-                                      const f = e.target.files?.[0];
-                                      if (!f) return;
-                                      setRowUploadingId(expense.id);
-                                      try {
-                                        const { url } = await receiptService.uploadFile(f);
-                                        await financialService.updateExpense(expense.id, { receipt_url: url });
-                                        await loadData();
-                                      } catch (err: any) {
-                                        toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
-                                      } finally {
-                                        setRowUploadingId(null);
-                                        e.target.value = '';
-                                      }
-                                    }}
-                                  />
-                                </label>
-                              )}
+                              <ExpenseReceiptsCell expenseId={expense.id} receiptUrl={expense.receipt_url} onChanged={loadData} />
                             </TableCell>
                             <TableCell>
                               <Badge className={getStatusColor(expense.status)}>

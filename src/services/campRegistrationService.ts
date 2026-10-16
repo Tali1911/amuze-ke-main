@@ -24,6 +24,16 @@ const isCompletedPayment = (payment: any) => {
   return source !== 'camp_registration_attempt' && (status === 'completed' || status === 'paid' || status === '');
 };
 
+// Payment rows recorded by staff (gate, admin dialog, pending collections) —
+// all must be cleared when a registration is reverted to unpaid/partial,
+// otherwise the leftover "completed" row flips it back to paid on reload.
+const ADMIN_PAYMENT_SOURCES = [
+  'camp_registration',
+  'ground_registration',
+  'pending_collections',
+  'manual',
+];
+
 const PAGE_SIZE = 1000;
 
 // PostgREST caps every response at max-rows (1000). Any unpaginated select silently
@@ -338,6 +348,27 @@ export const campRegistrationService = {
     if (method) updates.payment_method = method;
     if (reference) updates.payment_reference = reference;
 
+    if (status !== 'paid') {
+      // Clear admin-recorded payments so the list doesn't recompute it as paid,
+      // and step back from the "paid" document type.
+      const { error: delError } = await (supabase as any)
+        .from('payments')
+        .delete()
+        .eq('registration_id', id)
+        .in('source', ADMIN_PAYMENT_SOURCES);
+      if (delError) throw new Error(`Could not clear the previous payment record: ${delError.message}`);
+      if (status === 'unpaid') {
+        const { data: current } = await (supabase as any)
+          .from('camp_registrations')
+          .select('billing_doc_type, converted_to_invoice_at')
+          .eq('id', id)
+          .maybeSingle();
+        if (current?.billing_doc_type === 'paid') {
+          (updates as any).billing_doc_type = current.converted_to_invoice_at ? 'invoice' : 'quotation';
+        }
+      }
+    }
+
     const result = await this.updateRegistration(id, updates);
 
     // Create unified payment record if requested and status is paid
@@ -439,35 +470,51 @@ export const campRegistrationService = {
       throw new Error('Payment method is required for paid/partial registrations. Choose mpesa, card, cash_ground, or bank_transfer.');
     }
 
-    // 1. Update registration record (include discount_amount and possibly billing_doc_type)
+    // 1. Remove the previous admin payment row FIRST. If this fails, the old
+    // "completed" payment would make the registration resolve back to paid on
+    // reload, so surface the error instead of silently continuing.
+    const { error: delError } = await (supabase as any)
+      .from('payments')
+      .delete()
+      .eq('registration_id', id)
+      .in('source', ADMIN_PAYMENT_SOURCES);
+    if (delError) {
+      throw new Error(`Could not clear the previous payment record: ${delError.message}`);
+    }
+
+    // 2. Update registration record (include discount_amount and billing_doc_type)
     const updates: Partial<CampRegistration> & Record<string, any> = { payment_status: status };
     if (method) updates.payment_method = method;
     if (reference) updates.payment_reference = reference;
     if (context?.discountAmount !== undefined) updates.discount_amount = discount;
     if (status === 'paid') {
       updates.billing_doc_type = 'paid';
+    } else {
+      // Undo an accidental "paid": revert to invoice if attended, else quotation.
+      const { data: current } = await (supabase as any)
+        .from('camp_registrations')
+        .select('billing_doc_type, converted_to_invoice_at')
+        .eq('id', id)
+        .maybeSingle();
+      if (current?.billing_doc_type === 'paid') {
+        updates.billing_doc_type = current.converted_to_invoice_at ? 'invoice' : 'quotation';
+      }
     }
     await this.updateRegistration(id, updates as Partial<CampRegistration>);
 
-    // 2. Upsert payment record (delete old + insert new to avoid duplicate constraint)
-    try {
-      await (supabase as any).from('payments').delete().eq('registration_id', id).eq('source', 'camp_registration');
-
-      if (amountPaid > 0) {
-        await financialService.createPaymentFromRegistration({
-          registrationId: id,
-          registrationType: 'camp',
-          source: 'camp_registration',
-          customerName: context?.parentName || 'Unknown',
-          programName: context?.campType || 'Camp',
-          amount: amountPaid,
-          paymentMethod: (method === 'pending' ? 'other' : method) || 'mpesa',
-          paymentReference: reference,
-          notes: `Admin payment update – KES ${amountPaid} of ${effectiveTotal} (gross ${totalAmount}, discount ${discount})`,
-        });
-      }
-    } catch (err) {
-      console.error('Error upserting payment record:', err);
+    // 3. Insert the new payment record
+    if (amountPaid > 0) {
+      await financialService.createPaymentFromRegistration({
+        registrationId: id,
+        registrationType: 'camp',
+        source: 'camp_registration',
+        customerName: context?.parentName || 'Unknown',
+        programName: context?.campType || 'Camp',
+        amount: amountPaid,
+        paymentMethod: (method === 'pending' ? 'other' : method) || 'mpesa',
+        paymentReference: reference,
+        notes: `Admin payment update – KES ${amountPaid} of ${effectiveTotal} (gross ${totalAmount}, discount ${discount})`,
+      });
     }
 
     // 3. Update accounts_action_items for each child (pro-rate discount)
@@ -487,7 +534,7 @@ export const campRegistrationService = {
         .from('accounts_action_items')
         .select('id, child_name, amount_due')
         .eq('registration_id', id)
-        .in('status', ['pending', 'in_progress']);
+        .in('status', status === 'paid' ? ['pending', 'in_progress'] : ['pending', 'in_progress', 'completed']);
 
       const itemsByName = new Map<string, any[]>();
       (openItems || []).forEach((item: any) => {
@@ -509,7 +556,7 @@ export const campRegistrationService = {
               amount_due: childDue,
               amount_paid: perChildPaid,
               status: newItemStatus,
-              ...(completedAt ? { completed_at: completedAt } : {}),
+              completed_at: completedAt ?? null,
             })
             .eq('id', item.id);
         }

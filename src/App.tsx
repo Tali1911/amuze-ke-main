@@ -37,6 +37,7 @@ import BlogPost from "./pages/BlogPost";
 import ClientProfile from "./pages/ClientProfile";
 import MyRegistrations from "./pages/MyRegistrations";
 import ResetPassword from "./pages/ResetPassword";
+import ForgotPassword from "./pages/ForgotPassword";
 import Unsubscribe from "./pages/Unsubscribe";
 
 import { AuthProvider } from "./hooks/useAuth";
@@ -112,6 +113,7 @@ function App() {
               <Route path="/my-profile" element={<ClientProfile />} />
               <Route path="/my-registrations" element={<MyRegistrations />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/unsubscribe/:token" element={<Unsubscribe />} />
               
               {/* Blog */}

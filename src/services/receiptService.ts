@@ -57,9 +57,13 @@ export const receiptService = {
 
   async matchToExpense(uploadId: string, expenseId: string, fileUrl: string): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
+    const { data: existing } = await (supabase as any)
+      .from('expenses').select('receipt_url').eq('id', expenseId).maybeSingle();
+    const urls = String(existing?.receipt_url || '').split(/\r?\n/).map((s: string) => s.trim()).filter(Boolean);
+    if (!urls.includes(fileUrl)) urls.push(fileUrl);
     const { error: e1 } = await (supabase as any)
       .from('expenses')
-      .update({ receipt_url: fileUrl })
+      .update({ receipt_url: urls.join('\n') })
       .eq('id', expenseId);
     if (e1) throw e1;
     const { error: e2 } = await tbl()

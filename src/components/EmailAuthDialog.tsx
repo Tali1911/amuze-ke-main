@@ -125,7 +125,12 @@ const EmailAuthDialog = ({ open, onOpenChange }: EmailAuthDialogProps) => {
                 <Input id="si-email" type="email" value={siEmail} onChange={(e) => setSiEmail(e.target.value)} autoComplete="email" required />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="si-password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="si-password">Password</Label>
+                  <button type="button" onClick={() => { setFpEmail(siEmail); setTab('forgot'); }} className="text-xs font-medium text-primary hover:underline">
+                    Forgot password?
+                  </button>
+                </div>
                 <Input id="si-password" type="password" value={siPassword} onChange={(e) => setSiPassword(e.target.value)} autoComplete="current-password" required />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>

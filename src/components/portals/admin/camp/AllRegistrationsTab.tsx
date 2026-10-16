@@ -26,6 +26,7 @@ import { registrationInDateWindow } from '@/utils/registrationDate';
 import { promptForPaymentMethod } from '@/utils/promptPaymentMethod';
 import { useRegistrationLoadProgress } from '@/hooks/useRegistrationLoadProgress';
 import { RegistrationLoadStatus } from './RegistrationLoadStatus';
+import { AllergyCell, MediaConsentCell } from './HealthConsentCells';
 
 type DocType = 'quotation' | 'invoice' | 'paid';
 const deriveDocType = (reg: CampRegistration): DocType => {
@@ -601,6 +602,8 @@ export const AllRegistrationsTab: React.FC = () => {
                     <TableHead className="text-xs sm:text-sm hidden md:table-cell">Camp</TableHead>
                     <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Location</TableHead>
                     <TableHead className="text-xs sm:text-sm">Kids</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Allergies</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Media Consent</TableHead>
                     <TableHead className="text-xs sm:text-sm">Amount</TableHead>
                     <TableHead className="text-xs sm:text-sm">Status</TableHead>
                     <TableHead className="text-xs sm:text-sm">Doc Type</TableHead>
@@ -623,6 +626,8 @@ export const AllRegistrationsTab: React.FC = () => {
                       <TableCell className="capitalize text-xs sm:text-sm hidden md:table-cell">{reg.camp_type.replace('-', ' ')}</TableCell>
                       <TableCell className="text-xs sm:text-sm hidden lg:table-cell">{displayLocation(reg.location || 'Kurura Gate F')}</TableCell>
                       <TableCell className="text-xs sm:text-sm">{reg.children.length}</TableCell>
+                      <TableCell><AllergyCell children={reg.children} /></TableCell>
+                      <TableCell><MediaConsentCell consent={reg.consent_given} /></TableCell>
                       <TableCell className="text-xs sm:text-sm">
                         KES {Math.max(0, (reg.total_amount || 0) - (Number((reg as any).discount_amount) || 0)).toFixed(0)}
                         {Number((reg as any).discount_amount) > 0 && (
